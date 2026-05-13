@@ -19,6 +19,10 @@ android {
         consumerProguardFiles("consumer-rules.pro")
     }
 
+    androidResources {
+        resourcePrefix = "yalla_"
+    }
+
     buildFeatures {
         compose = true
     }

@@ -15,3 +15,16 @@ consumer, not the source of truth for other platforms.
 
 The canonical design contract should live in platform-neutral token/resource
 specs, then be implemented or generated into Android and iOS native adapters.
+
+## Resources
+
+Native Android strings are generated from
+[`RoyalTaxi/yalla-resources`](https://github.com/RoyalTaxi/yalla-resources) into
+`sdk/src/main/res/values*/yalla_strings.xml`.
+
+Do not edit generated `yalla_strings.xml` files by hand. Change the canonical
+catalog in `yalla-resources`, then run:
+
+```bash
+python3 tools/yalla_resources.py sync --no-cmp --no-ios
+```
