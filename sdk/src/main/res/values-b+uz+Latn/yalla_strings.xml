@@ -24,7 +24,7 @@
     <string name="yalla_format_currency_range">%1$s dan %2$s gacha</string>
     <string name="yalla_format_time_min">%1$s daq</string>
     <string name="yalla_format_time_min_short">daq</string>
-    <string name="yalla_format_percent_up_to">%1$s% gacha</string>
+    <string name="yalla_format_percent_up_to">%1$s%% gacha</string>
     <string name="yalla_auth_welcome_title">Xush kelibsiz!</string>
     <string name="yalla_auth_welcome_description">Davom etish uchun telefon raqamingizni kiriting.</string>
     <string name="yalla_auth_welcome_sms_hint">Raqamingizga tasdiqlash kodi bilan SMS yuboriladi.</string>

@@ -24,7 +24,7 @@
     <string name="yalla_format_currency_range">от %1$s до %2$s</string>
     <string name="yalla_format_time_min">%1$s мин</string>
     <string name="yalla_format_time_min_short">мин</string>
-    <string name="yalla_format_percent_up_to">До %1$s%</string>
+    <string name="yalla_format_percent_up_to">До %1$s%%</string>
     <string name="yalla_auth_welcome_title">Добро пожаловать!</string>
     <string name="yalla_auth_welcome_description">Введите номер телефона, чтобы продолжить.</string>
     <string name="yalla_auth_welcome_sms_hint">На ваш номер будет отправлено SMS с кодом подтверждения.</string>

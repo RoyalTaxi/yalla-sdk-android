@@ -1,0 +1,14 @@
+<!-- Generated from RoyalTaxi/yalla-resources. Do not edit by hand. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp"
+    android:height="40dp"
+    android:viewportWidth="40"
+    android:viewportHeight="40">
+  <group>
+    <clip-path
+        android:pathData="M0,40l40,-0l0,-40l-40,-0z"/>
+    <path
+        android:pathData="M17.408,4.451C18.565,2.464 21.435,2.464 22.592,4.451L25.8,9.958C26.224,10.686 26.934,11.202 27.758,11.381L33.987,12.73C36.234,13.216 37.121,15.946 35.589,17.66L31.343,22.413C30.781,23.041 30.51,23.876 30.595,24.715L31.237,31.056C31.469,33.343 29.146,35.03 27.042,34.103L21.21,31.533C20.439,31.194 19.561,31.194 18.79,31.533L12.958,34.103C10.854,35.03 8.532,33.343 8.763,31.056L9.405,24.715C9.49,23.876 9.219,23.041 8.658,22.413L4.411,17.66C2.879,15.946 3.766,13.216 6.013,12.73L12.242,11.381C13.066,11.202 13.776,10.686 14.2,9.958L17.408,4.451Z"
+        android:fillColor="#FFA53D"/>
+  </group>
+</vector>

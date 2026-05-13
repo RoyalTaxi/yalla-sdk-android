@@ -1,0 +1,11 @@
+<!-- Generated from RoyalTaxi/yalla-resources. Do not edit by hand. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="18dp"
+    android:height="4dp"
+    android:viewportWidth="18"
+    android:viewportHeight="4">
+  <path
+      android:pathData="M0,2a9,2 0,1 0,18 0a9,2 0,1 0,-18 0z"
+      android:fillColor="#000000"
+      android:fillAlpha="0.5"/>
+</vector>

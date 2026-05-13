@@ -22,8 +22,11 @@ Native Android strings are generated from
 [`RoyalTaxi/yalla-resources`](https://github.com/RoyalTaxi/yalla-resources) into
 `sdk/src/main/res/values*/yalla_strings.xml`.
 
-Do not edit generated `yalla_strings.xml` files by hand. Change the canonical
-catalog in `yalla-resources`, then run:
+Native Android icons are generated from the same repo's canonical SVG sources
+into `sdk/src/main/res/drawable/yalla_ic_*.xml` VectorDrawable files.
+
+Do not edit generated `yalla_strings.xml` or `yalla_ic_*.xml` files by hand.
+Change the canonical catalog or SVG source in `yalla-resources`, then run:
 
 ```bash
 python3 tools/yalla_resources.py sync --no-cmp --no-ios

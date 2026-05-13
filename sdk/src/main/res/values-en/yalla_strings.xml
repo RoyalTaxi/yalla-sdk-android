@@ -24,7 +24,7 @@
     <string name="yalla_format_currency_range">from %1$s to %2$s</string>
     <string name="yalla_format_time_min">%1$s min</string>
     <string name="yalla_format_time_min_short">min</string>
-    <string name="yalla_format_percent_up_to">Up to %1$s%</string>
+    <string name="yalla_format_percent_up_to">Up to %1$s%%</string>
     <string name="yalla_auth_welcome_title">Welcome!</string>
     <string name="yalla_auth_welcome_description">Enter your phone number to continue.</string>
     <string name="yalla_auth_welcome_sms_hint">A verification code will be sent to your number via SMS.</string>

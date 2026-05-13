@@ -14,7 +14,7 @@
     <string name="yalla_payment_card_uzcard_format" translatable="false">Uzcard ----%1$s</string>
     <string name="yalla_payment_date_default" translatable="false">01/24</string>
     <string name="yalla_format_distance_km" translatable="false">%1$s km</string>
-    <string name="yalla_format_percent" translatable="false">%1$s %</string>
+    <string name="yalla_format_percent" translatable="false">%1$s %%</string>
     <string name="yalla_common_action_activate">Faollashtirish</string>
     <string name="yalla_common_action_all">Barchasi</string>
     <string name="yalla_common_action_allow">Ruxsat berish</string>
@@ -38,7 +38,7 @@
     <string name="yalla_format_currency_range">%1$s dan %2$s gacha</string>
     <string name="yalla_format_time_min">%1$s daq</string>
     <string name="yalla_format_time_min_short">daq</string>
-    <string name="yalla_format_percent_up_to">%1$s% gacha</string>
+    <string name="yalla_format_percent_up_to">%1$s%% gacha</string>
     <string name="yalla_auth_welcome_title">Xush kelibsiz!</string>
     <string name="yalla_auth_welcome_description">Davom etish uchun telefon raqamingizni kiriting.</string>
     <string name="yalla_auth_welcome_sms_hint">Raqamingizga tasdiqlash kodi bilan SMS yuboriladi.</string>

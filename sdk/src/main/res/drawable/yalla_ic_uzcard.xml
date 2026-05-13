@@ -1,0 +1,19 @@
+<!-- Generated from RoyalTaxi/yalla-resources. Do not edit by hand. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <path
+      android:pathData="M21.247,12.747C21.247,16.212 20.448,18.794 18.854,20.477C17.257,22.162 14.795,23 11.473,23C8.369,23 6.016,22.162 4.408,20.477C2.803,18.794 2,16.254 2,12.865C2,9.071 2,5.277 2,1.483C2,1.218 2.219,1 2.487,1H8.115C8.383,1 8.602,1.218 8.602,1.483C8.602,5.36 8.602,9.236 8.602,13.112C8.602,14.498 8.861,15.565 9.386,16.316C9.909,17.063 10.658,17.438 11.634,17.438C12.615,17.438 13.362,17.088 13.876,16.382C14.39,15.677 14.644,14.637 14.644,13.262V11.084H21.247V12.747Z"
+      android:fillColor="#101828"
+      android:fillType="evenOdd"/>
+  <path
+      android:pathData="M14.646,9.813V1.506C14.646,1.228 14.875,1 15.156,1H16.068C16.07,3.836 18.388,6.134 21.247,6.134L21.248,6.134V9.813H14.646Z"
+      android:fillColor="#101828"
+      android:fillType="evenOdd"/>
+  <path
+      android:pathData="M17.367,1C18.492,1 19.616,1 20.74,1C21.02,1 21.25,1.228 21.25,1.506C21.25,2.623 21.25,3.74 21.25,4.856C19.106,4.856 17.367,3.132 17.367,1.004L17.367,1Z"
+      android:fillColor="#101828"
+      android:fillType="evenOdd"/>
+</vector>
