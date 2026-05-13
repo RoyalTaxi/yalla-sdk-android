@@ -28,6 +28,8 @@
     <string name="yalla_auth_welcome_title">Хуш келибсиз!</string>
     <string name="yalla_auth_welcome_description">Давом этиш учун телефон рақамингизни киритинг.</string>
     <string name="yalla_auth_welcome_sms_hint">Рақамингизга тасдиқлаш коди билан СМС юборилади.</string>
+    <string name="yalla_auth_privacy_policy_agreement">Давом этиш орқали махфийлик сиёсатимиз билан розилик билдирасиз.</string>
+    <string name="yalla_auth_privacy_policy_link">махфийлик сиёсатимиз</string>
     <string name="yalla_auth_otp_title">Хавфсизлик коди</string>
     <string name="yalla_auth_otp_description">Илтимос, +998%1$s рақамига юборилган %2$s хонали кодни киритинг.</string>
     <string name="yalla_auth_otp_resend">Кодни қайта юбориш</string>

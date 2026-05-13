@@ -28,6 +28,8 @@
     <string name="yalla_auth_welcome_title">Xush kelibsiz!</string>
     <string name="yalla_auth_welcome_description">Davom etish uchun telefon raqamingizni kiriting.</string>
     <string name="yalla_auth_welcome_sms_hint">Raqamingizga tasdiqlash kodi bilan SMS yuboriladi.</string>
+    <string name="yalla_auth_privacy_policy_agreement">Davom etish orqali maxfiylik siyosatimiz bilan rozilik bildirasiz.</string>
+    <string name="yalla_auth_privacy_policy_link">maxfiylik siyosatimiz</string>
     <string name="yalla_auth_otp_title">Xavfsizlik kodi</string>
     <string name="yalla_auth_otp_description">Iltimos, +998%1$s raqamiga yuborilgan %2$s xonali kodni kiriting.</string>
     <string name="yalla_auth_otp_resend">Kodni qayta yuborish</string>
