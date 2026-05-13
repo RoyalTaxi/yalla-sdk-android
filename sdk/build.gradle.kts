@@ -20,7 +20,6 @@ android {
     }
 
     androidResources {
-        resourcePrefix = "yalla_"
     }
 
     buildFeatures {
