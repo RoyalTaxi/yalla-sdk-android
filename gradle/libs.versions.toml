@@ -1,0 +1,13 @@
+[versions]
+agp = "9.2.1"
+kotlin = "2.3.21"
+androidx-compose = "1.11.1"
+junit = "4.13.2"
+
+[libraries]
+androidx-compose-runtime = { module = "androidx.compose.runtime:runtime", version.ref = "androidx-compose" }
+junit = { module = "junit:junit", version.ref = "junit" }
+
+[plugins]
+android-library = { id = "com.android.library", version.ref = "agp" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
