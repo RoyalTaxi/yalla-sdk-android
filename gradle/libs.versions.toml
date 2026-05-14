@@ -6,6 +6,9 @@ junit = "4.13.2"
 
 [libraries]
 androidx-compose-runtime = { module = "androidx.compose.runtime:runtime", version.ref = "androidx-compose" }
+androidx-compose-ui = { module = "androidx.compose.ui:ui", version.ref = "androidx-compose" }
+androidx-compose-foundation = { module = "androidx.compose.foundation:foundation", version.ref = "androidx-compose" }
+androidx-compose-material3 = { module = "androidx.compose.material3:material3", version = "2.1.0-alpha01" }
 junit = { module = "junit:junit", version.ref = "junit" }
 
 [plugins]
