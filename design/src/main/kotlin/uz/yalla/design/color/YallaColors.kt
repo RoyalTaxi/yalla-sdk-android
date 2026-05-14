@@ -1,58 +1,58 @@
 package uz.yalla.design.color
 
-import uz.yalla.sdk.android.design.R
+import androidx.compose.ui.graphics.Color
 
 object YallaColors {
     object Text {
-        val base: Int get() = R.color.text_base
-        val subtle: Int get() = R.color.text_subtle
-        val link: Int get() = R.color.text_link
-        val red: Int get() = R.color.text_red
-        val white: Int get() = R.color.text_white
+        val base: Color get() = light_text_base
+        val subtle: Color get() = light_text_subtle
+        val link: Color get() = light_text_link
+        val red: Color get() = light_text_red
+        val white: Color get() = light_text_white
     }
 
     object Background {
-        val base: Int get() = R.color.background_base
-        val brand: Int get() = R.color.background_brand
-        val secondary: Int get() = R.color.background_secondary
-        val tertiary: Int get() = R.color.background_tertiary
+        val base: Color get() = light_background_base
+        val brand: Color get() = light_background_brand
+        val secondary: Color get() = light_background_secondary
+        val tertiary: Color get() = light_background_tertiary
     }
 
     object Border {
-        val disabled: Int get() = R.color.border_disabled
-        val filled: Int get() = R.color.border_filled
-        val white: Int get() = R.color.border_white
-        val error: Int get() = R.color.border_error
+        val disabled: Color get() = light_border_disabled
+        val filled: Color get() = light_border_filled
+        val white: Color get() = light_border_white
+        val error: Color get() = light_border_error
     }
 
     object Button {
-        val active: Int get() = R.color.button_active
-        val disabled: Int get() = R.color.button_disabled
-        val secondary: Int get() = R.color.button_secondary
-        val tertiary: Int get() = R.color.button_tertiary
-        val disabledTertiary: Int get() = R.color.button_disabled_tertiary
+        val active: Color get() = light_button_active
+        val disabled: Color get() = light_button_disabled
+        val secondary: Color get() = light_button_secondary
+        val tertiary: Color get() = light_button_tertiary
+        val disabledTertiary: Color get() = light_button_disabled_tertiary
     }
 
     object Icon {
-        val white: Int get() = R.color.icon_white
-        val base: Int get() = R.color.icon_base
-        val secondary: Int get() = R.color.icon_secondary
-        val disabled: Int get() = R.color.icon_disabled
-        val red: Int get() = R.color.icon_red
-        val subtle: Int get() = R.color.icon_subtle
+        val white: Color get() = light_icon_white
+        val base: Color get() = light_icon_base
+        val secondary: Color get() = light_icon_secondary
+        val disabled: Color get() = light_icon_disabled
+        val red: Color get() = light_icon_red
+        val subtle: Color get() = light_icon_subtle
     }
 
     object Accent {
-        val pinkSun: Int get() = R.color.accent_pink_sun
-        val color1: Int get() = R.color.accent_color1
-        val color2: Int get() = R.color.accent_color2
-        val color3: Int get() = R.color.accent_color3
-        val color4: Int get() = R.color.accent_color4
-        val color5: Int get() = R.color.accent_color5
+        val pinkSun: Color get() = accent_pink_sun
+        val color1: Color get() = accent_color1
+        val color2: Color get() = accent_color2
+        val color3: Color get() = accent_color3
+        val color4: Color get() = accent_color4
+        val color5: Color get() = accent_color5
     }
 
     object Gradient {
-        val splash: IntArray get() = intArrayOf(R.color.gradient_splash_0, R.color.gradient_splash_1, R.color.gradient_splash_2)
-        val sunsetNight: IntArray get() = intArrayOf(R.color.gradient_sunset_night_0, R.color.gradient_sunset_night_1)
+        val splash: List<Color> get() = listOf(gradient_splash_0, gradient_splash_1, gradient_splash_2)
+        val sunsetNight: List<Color> get() = listOf(gradient_sunset_night_0, gradient_sunset_night_1)
     }
 }
