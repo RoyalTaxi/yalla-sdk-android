@@ -1,6 +1,6 @@
 package uz.yalla.sdk.android.design
 
-import uz.yalla.sdk.android.R
+import uz.yalla.sdk.android.design.R
 
 public data class YallaTextStyle(
     public val fontRes: Int,
@@ -8,7 +8,7 @@ public data class YallaTextStyle(
     public val lineHeightSp: Float
 )
 
-public object YallaTypography {
+public object YallaFonts {
     public object Title {
         public val xLarge: YallaTextStyle = YallaTextStyle(fontRes = R.font.roboto_bold, sizeSp = 30.0f, lineHeightSp = 30.0f)
         public val large: YallaTextStyle = YallaTextStyle(fontRes = R.font.roboto_bold, sizeSp = 22.0f, lineHeightSp = 22.0f)

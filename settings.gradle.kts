@@ -17,3 +17,4 @@ dependencyResolutionManagement {
 rootProject.name = "yalla-sdk-android"
 
 include(":sdk")
+include(":design")

@@ -1,6 +1,6 @@
 package uz.yalla.sdk.android.design
 
-import uz.yalla.sdk.android.R
+import uz.yalla.sdk.android.design.R
 
 public object YallaColors {
     public object Text {

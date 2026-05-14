@@ -11,19 +11,11 @@ group = "uz.yalla.sdk"
 version = "0.1.0-SNAPSHOT"
 
 android {
-    namespace = "uz.yalla.sdk.android"
+    namespace = "uz.yalla.sdk.android.design"
     compileSdk = 36
 
     defaultConfig {
         minSdk = 26
-        consumerProguardFiles("consumer-rules.pro")
-    }
-
-    androidResources {
-    }
-
-    buildFeatures {
-        compose = true
     }
 
     compileOptions {
@@ -45,9 +37,7 @@ tasks.withType<KotlinCompile>().configureEach {
 }
 
 dependencies {
-    api(project(":design"))
     implementation(libs.androidx.compose.runtime)
-    testImplementation(libs.junit)
 }
 
 afterEvaluate {
@@ -56,7 +46,7 @@ afterEvaluate {
             create<MavenPublication>("release") {
                 from(components["release"])
                 groupId = "uz.yalla.sdk"
-                artifactId = "yalla-sdk-android"
+                artifactId = "yalla-design-android"
                 version = project.version.toString()
             }
         }

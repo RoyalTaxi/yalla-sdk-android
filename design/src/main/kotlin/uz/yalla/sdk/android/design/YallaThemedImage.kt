@@ -1,6 +1,6 @@
 package uz.yalla.sdk.android.design
 
-import uz.yalla.sdk.android.R
+import uz.yalla.sdk.android.design.R
 
 public enum class YallaThemedImage(public val resId: Int) {
     BlurryLogo(R.drawable.yalla_img_blurry_logo),
