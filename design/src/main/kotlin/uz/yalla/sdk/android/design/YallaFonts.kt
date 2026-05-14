@@ -1,4 +1,4 @@
-package uz.yalla.sdk.android.design
+package uz.yalla.design
 
 import uz.yalla.sdk.android.design.R
 

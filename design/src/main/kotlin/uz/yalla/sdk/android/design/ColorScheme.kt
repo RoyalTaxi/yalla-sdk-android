@@ -1,4 +1,4 @@
-package uz.yalla.sdk.android.design
+package uz.yalla.design
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable

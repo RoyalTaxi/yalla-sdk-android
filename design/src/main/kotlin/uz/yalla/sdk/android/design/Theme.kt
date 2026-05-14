@@ -1,4 +1,4 @@
-package uz.yalla.sdk.android.design
+package uz.yalla.design
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
