@@ -1,4 +1,4 @@
-package uz.yalla.design
+package uz.yalla.design.color
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable

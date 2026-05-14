@@ -1,4 +1,4 @@
-package uz.yalla.design
+package uz.yalla.design.color
 
 import uz.yalla.sdk.android.design.R
 
