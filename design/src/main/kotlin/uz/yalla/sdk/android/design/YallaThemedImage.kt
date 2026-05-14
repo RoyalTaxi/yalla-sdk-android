@@ -2,7 +2,7 @@ package uz.yalla.sdk.android.design
 
 import uz.yalla.sdk.android.design.R
 
-public enum class YallaThemedImage(public val resId: Int) {
+enum class YallaThemedImage(val resId: Int) {
     BlurryLogo(R.drawable.img_blurry_logo),
     CloseCircle(R.drawable.img_close_circle),
     Login(R.drawable.img_login),
