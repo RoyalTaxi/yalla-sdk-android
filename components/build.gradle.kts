@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     alias(libs.plugins.android.library)
+    alias(libs.plugins.compose.compiler)
     `maven-publish`
 }
 
@@ -10,11 +11,15 @@ group = "uz.yalla.sdk.android"
 version = "0.1.0-SNAPSHOT"
 
 android {
-    namespace = "uz.yalla.sdk.android.resources"
+    namespace = "uz.yalla.sdk.android.components"
     compileSdk = 36
 
     defaultConfig {
         minSdk = 26
+    }
+
+    buildFeatures {
+        compose = true
     }
 
     compileOptions {
@@ -35,13 +40,27 @@ tasks.withType<KotlinCompile>().configureEach {
     }
 }
 
+dependencies {
+    api(projects.design)
+    api(projects.resources)
+
+    implementation(libs.androidx.compose.runtime)
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
+
+    debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
 afterEvaluate {
     publishing {
         publications {
             create<MavenPublication>("release") {
                 from(components["release"])
                 groupId = "uz.yalla.sdk"
-                artifactId = "yalla-resources-android"
+                artifactId = "yalla-components-android"
                 version = project.version.toString()
             }
         }

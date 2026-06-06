@@ -11,11 +11,15 @@ group = "uz.yalla.sdk.android"
 version = "0.1.0-SNAPSHOT"
 
 android {
-    namespace = "uz.yalla.sdk.android.design"
+    namespace = "uz.yalla.sdk.android.bridges"
     compileSdk = 36
 
     defaultConfig {
         minSdk = 26
+    }
+
+    buildFeatures {
+        compose = true
     }
 
     compileOptions {
@@ -37,11 +41,29 @@ tasks.withType<KotlinCompile>().configureEach {
 }
 
 dependencies {
-    api(project(":resources"))
+    api(projects.components)
+    api(libs.yalla.sdk.components)
+    api(libs.yalla.sdk.media)
+    api(libs.yalla.sdk.telemetry)
+
+    implementation(libs.androidx.activity)
+    implementation(libs.androidx.core.ktx)
+
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.crashlytics)
+
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
+
+    implementation(libs.kotlinx.datetime)
+    implementation(libs.datetime.wheel.picker)
+
+    debugImplementation(libs.androidx.compose.ui.tooling)
 }
 
 afterEvaluate {
@@ -50,7 +72,7 @@ afterEvaluate {
             create<MavenPublication>("release") {
                 from(components["release"])
                 groupId = "uz.yalla.sdk"
-                artifactId = "yalla-design-android"
+                artifactId = "yalla-bridges-android"
                 version = project.version.toString()
             }
         }

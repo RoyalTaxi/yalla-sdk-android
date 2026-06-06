@@ -10,24 +10,27 @@ consumer, not the source of truth for other platforms.
 
 - `design-android`: Android/Compose design tokens and theme adapters.
 - `resources-android`: Android drawables, fonts, and generated asset accessors.
-- `components-android`: Android-only Jetpack Compose components.
-- `sdk`: current starter Android library module.
+- `components`: Android-native and Android-hosted Jetpack Compose components.
 
 The canonical design contract should live in platform-neutral token/resource
 specs, then be implemented or generated into Android and iOS native adapters.
+
+The `components` module may reuse platform-agnostic Compose UI from
+`uz.yalla.sdk:components`. In local development, `settings.gradle.kts` resolves
+that dependency from `../yalla-sdk` when the sibling repository is present.
 
 ## Resources
 
 Native Android strings are generated from
 [`RoyalTaxi/yalla-resources`](https://github.com/RoyalTaxi/yalla-resources) into
-`sdk/src/main/res/values*/strings.xml`.
+`resources/src/main/res/values*/strings.xml`.
 
 Native Android icons are generated from the same repo's canonical SVG sources
-into `sdk/src/main/res/drawable/ic_*.xml` VectorDrawable files.
+into `resources/src/main/res/drawable/ic_*.xml` VectorDrawable files.
 
 PNG images, fonts, and JSON files are generated into
-`sdk/src/main/res/drawable-nodpi`, `sdk/src/main/res/font`, and
-`sdk/src/main/res/raw`.
+`resources/src/main/res/drawable-nodpi`, `resources/src/main/res/font`, and
+`resources/src/main/res/raw`.
 
 Do not edit generated resources by hand. Change the canonical source in
 `yalla-resources`, then run:

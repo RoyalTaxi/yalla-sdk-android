@@ -1,0 +1,230 @@
+package uz.yalla.sdk.android.bridges.composites.sheet
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
+import uz.yalla.components.primitives.button.CloseButton
+import uz.yalla.design.theme.System as CommonSystem
+import uz.yalla.sdk.android.components.primitives.button.DragButton
+import uz.yalla.sdk.android.design.theme.System
+import uz.yalla.sdk.android.design.theme.YallaTheme
+
+private val SheetCornerRadius = 38.dp
+private val SheetHeaderShadowElevation = 3.dp
+private val SheetFooterShadowElevation = 6.dp
+private val SheetTonalElevation = 2.dp
+private val SheetContentSpacing = 10.dp
+private val SheetHeaderPadding = 16.dp
+private val SheetFooterVerticalPadding = 8.dp
+private val SheetFooterHorizontalPadding = 20.dp
+private val SheetCloseSlotWidth = 44.dp
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun Sheet(
+    isVisible: Boolean,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    dismissEnabled: Boolean = true,
+    title: String? = null,
+    onClose: (() -> Unit)? = null,
+    headerAction: (@Composable () -> Unit)? = null,
+    footer: (@Composable () -> Unit)? = null,
+    headerElevated: Boolean = false,
+    footerElevated: Boolean = false,
+    content: @Composable (padding: PaddingValues) -> Unit
+) {
+    val density = LocalDensity.current
+    val isDark = CommonSystem.isDark
+    var shouldShow by remember { mutableStateOf(false) }
+    var headerHeight by remember { mutableStateOf(0.dp) }
+    var footerHeight by remember { mutableStateOf(0.dp) }
+
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { value ->
+            !(value == SheetValue.Hidden && !dismissEnabled)
+        }
+    )
+
+    LaunchedEffect(isVisible) {
+        if (isVisible) {
+            shouldShow = true
+        } else if (shouldShow) {
+            sheetState.hide()
+            shouldShow = false
+        }
+    }
+
+    val hasHeader = title != null || onClose != null || headerAction != null
+
+    if (shouldShow) {
+        val navBottom = with(density) {
+            WindowInsets.navigationBars.getBottom(this).toDp()
+        }
+
+        YallaTheme(isDark = isDark) {
+            ModalBottomSheet(
+                modifier = modifier.statusBarsPadding(),
+                contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+                onDismissRequest = {
+                    if (dismissEnabled) {
+                        shouldShow = false
+                        onDismissRequest()
+                    }
+                },
+                sheetState = sheetState,
+                shape = RoundedCornerShape(
+                    topStart = SheetCornerRadius,
+                    topEnd = SheetCornerRadius
+                ),
+                containerColor = System.color.background.base,
+                dragHandle = {
+                    DragButton(
+                        onClick = {
+                            if (dismissEnabled) {
+                                onDismissRequest()
+                            }
+                        }
+                    )
+                }
+            ) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    content(
+                        PaddingValues(
+                            top = (if (hasHeader) headerHeight else 0.dp) + SheetContentSpacing,
+                            bottom = if (footer != null) {
+                                footerHeight + SheetContentSpacing
+                            } else {
+                                navBottom + SheetContentSpacing
+                            }
+                        )
+                    )
+
+                    if (hasHeader) {
+                        SheetHeader(
+                            title = title,
+                            onClose = onClose,
+                            action = headerAction,
+                            elevated = headerElevated,
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .onSizeChanged { size ->
+                                    headerHeight = with(density) { size.height.toDp() }
+                                }
+                        )
+                    }
+
+                    if (footer != null) {
+                        SheetFooter(
+                            elevated = footerElevated,
+                            content = footer,
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .onSizeChanged { size ->
+                                    footerHeight = with(density) { size.height.toDp() }
+                                }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SheetHeader(
+    title: String?,
+    onClose: (() -> Unit)?,
+    action: (@Composable () -> Unit)?,
+    elevated: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = System.color.background.base,
+        tonalElevation = if (elevated) SheetTonalElevation else 0.dp,
+        shadowElevation = if (elevated) SheetHeaderShadowElevation else 0.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(SheetHeaderPadding)
+        ) {
+            if (onClose != null) {
+                CloseButton(
+                    onClick = onClose,
+                    modifier = Modifier.align(Alignment.CenterStart)
+                )
+            }
+
+            if (title != null) {
+                Text(
+                    text = title,
+                    color = System.color.text.base,
+                    style = System.font.body.large.medium,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(horizontal = SheetCloseSlotWidth)
+                )
+            }
+
+            if (action != null) {
+                Box(modifier = Modifier.align(Alignment.CenterEnd)) {
+                    action()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SheetFooter(
+    elevated: Boolean,
+    content: @Composable () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = System.color.background.base,
+        tonalElevation = if (elevated) SheetTonalElevation else 0.dp,
+        shadowElevation = if (elevated) SheetFooterShadowElevation else 0.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
+                .padding(
+                    horizontal = SheetFooterHorizontalPadding,
+                    vertical = SheetFooterVerticalPadding
+                )
+        ) {
+            content()
+        }
+    }
+}
