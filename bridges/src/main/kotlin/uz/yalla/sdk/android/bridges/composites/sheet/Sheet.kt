@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -106,6 +107,12 @@ internal fun Sheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .then(if (fullHeight) Modifier.fillMaxHeight() else Modifier)
+                        .clip(
+                            RoundedCornerShape(
+                                topStart = SheetCornerRadius,
+                                topEnd = SheetCornerRadius
+                            )
+                        )
                 ) {
                     val density = LocalDensity.current
                     var dragHandleHeight by remember { mutableStateOf(0.dp) }
