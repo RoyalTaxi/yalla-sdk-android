@@ -25,6 +25,7 @@ import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
+import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.plugins.annotation.Symbol as LibreSymbol
@@ -104,7 +105,8 @@ internal class AndroidLibreMapController(
         ensureMainThread()
         check(!closed) { "AndroidLibreMapController is closed; create a new controller." }
         detachFromLifecycle()
-        val view = MapView(context).apply { onCreate(Bundle()) }
+        val options = MapLibreMapOptions.createFromAttributes(context).textureMode(true)
+        val view = MapView(context, options).apply { onCreate(Bundle()) }
         mapView = view
         attachedLifecycle = lifecycle
         val observer = LifecycleEventObserver { _, event ->
