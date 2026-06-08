@@ -53,6 +53,7 @@ internal fun VerificationSheet(
         isVisible = isVisible,
         onDismissRequest = onDismissRequest,
         dismissEnabled = dismissEnabled,
+        sheetSwipeEnabled = dismissEnabled,
         title = title,
         onClose = if (dismissEnabled) onDismissRequest else null,
         footer = {

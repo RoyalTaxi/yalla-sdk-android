@@ -44,7 +44,7 @@ internal fun SelectionSheet(
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(
                 top = padding.calculateTopPadding(),
-                bottom = padding.calculateBottomPadding(),
+                bottom = padding.calculateBottomPadding() + 16.dp,
                 start = 16.dp,
                 end = 16.dp
             ),

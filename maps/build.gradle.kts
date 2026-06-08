@@ -3,7 +3,6 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.compose.compiler)
     `maven-publish`
 }
 
@@ -16,10 +15,6 @@ android {
 
     defaultConfig {
         minSdk = 26
-    }
-
-    buildFeatures {
-        compose = true
     }
 
     compileOptions {
@@ -43,25 +38,13 @@ tasks.withType<KotlinCompile>().configureEach {
 dependencies {
     api(libs.yalla.sdk.maps)
     api(libs.yalla.sdk.core)
-    api(libs.yalla.sdk.design)
-    api(libs.yalla.sdk.resources)
 
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.activity)
 
-    implementation(libs.androidx.compose.runtime)
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.foundation)
-    implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.lifecycle.runtime.compose)
-
-    implementation(libs.google.maps.compose)
     implementation(libs.play.services.maps)
-    implementation(libs.maplibre.compose)
-    implementation(libs.geo)
-    implementation(libs.geo.compose)
-
-    implementation(libs.koin.core)
-    implementation(libs.koin.compose)
+    implementation(libs.maplibre.android.sdk)
+    implementation(libs.maplibre.android.plugin.annotation)
 
     implementation(libs.kotlinx.coroutines.core)
 }

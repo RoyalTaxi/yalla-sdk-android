@@ -104,6 +104,7 @@
     <string name="places_form_new">Янги манзил</string>
     <string name="places_form_edit">Манзилни таҳрирлаш</string>
     <string name="places_form_address_hint">Манзилни киритинг</string>
+    <string name="places_search_empty_hint">Манзилни қидиринг</string>
     <string name="places_form_name">Манзил номи</string>
     <string name="places_form_building">Уй рақами</string>
     <string name="places_form_entrance">Кириш</string>
@@ -118,6 +119,8 @@
     <string name="places_update_error">Манзилни янгилаб бўлмади</string>
     <string name="places_delete_success">Манзил муваффақиятли ўчирилди</string>
     <string name="places_delete_error">Манзилни ўчириб бўлмади</string>
+    <string name="places_load_error">Манзилларни юклаб бўлмади</string>
+    <string name="places_section_custom">Бошқа манзиллар</string>
     <string name="payment_title">Тўлов усули</string>
     <string name="payment_section_cards">Карталар ва бонус</string>
     <string name="payment_section_other">Бошқа усуллар</string>
@@ -237,6 +240,7 @@
     <string name="driver_become_error">Нимадир хато кетди. Қайтадан уриниб кўринг.</string>
     <string name="driver_become_select_region">Вилоятингиз</string>
     <string name="driver_become_region_title">Вилоятингиз</string>
+    <string name="driver_region_search">Қидириш</string>
     <string name="service_taxi">Такси</string>
     <string name="service_delivery">Етказиб бериш</string>
     <string name="service_intercity">Шаҳарлараро</string>

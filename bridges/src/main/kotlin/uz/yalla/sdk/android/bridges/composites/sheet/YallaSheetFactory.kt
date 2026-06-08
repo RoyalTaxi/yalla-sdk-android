@@ -1,16 +1,44 @@
 package uz.yalla.sdk.android.bridges.composites.sheet
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import kotlinx.datetime.LocalDate
 import uz.yalla.components.composites.item.ActionableItemModel
 import uz.yalla.components.composites.item.SelectableItemModel
 import uz.yalla.components.config.composites.SheetFactory
+import uz.yalla.design.image.ThemedImage
 
 class YallaSheetFactory : SheetFactory {
     @Composable
+    override fun ContentContent(
+        isVisible: Boolean,
+        onDismissRequest: () -> Unit,
+        modifier: Modifier,
+        title: String?,
+        onClose: (() -> Unit)?,
+        fullHeight: Boolean,
+        sheetSwipeEnabled: Boolean,
+        footer: (@Composable () -> Unit)?,
+        content: @Composable (padding: PaddingValues) -> Unit
+    ) {
+        ContentSheet(
+            isVisible = isVisible,
+            onDismissRequest = onDismissRequest,
+            modifier = modifier,
+            title = title,
+            onClose = onClose,
+            fullHeight = fullHeight,
+            sheetSwipeEnabled = sheetSwipeEnabled,
+            footer = footer,
+            content = content
+        )
+    }
+
+    @Composable
     override fun ConfirmationContent(
         isVisible: Boolean,
-        imageResource: String,
+        image: ThemedImage,
         title: String,
         description: String,
         actionText: String,
@@ -20,7 +48,7 @@ class YallaSheetFactory : SheetFactory {
     ) {
         ConfirmationSheet(
             isVisible = isVisible,
-            imageResource = imageResource,
+            image = image,
             title = title,
             description = description,
             actionText = actionText,

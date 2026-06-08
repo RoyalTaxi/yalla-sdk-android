@@ -104,6 +104,7 @@
     <string name="places_form_new">Новый адрес</string>
     <string name="places_form_edit">Редактировать адрес</string>
     <string name="places_form_address_hint">Введите адрес</string>
+    <string name="places_search_empty_hint">Найдите адрес</string>
     <string name="places_form_name">Название адреса</string>
     <string name="places_form_building">Номер дома</string>
     <string name="places_form_entrance">Подъезд</string>
@@ -118,6 +119,8 @@
     <string name="places_update_error">Не удалось обновить адрес</string>
     <string name="places_delete_success">Адрес успешно удалён</string>
     <string name="places_delete_error">Не удалось удалить адрес</string>
+    <string name="places_load_error">Не удалось загрузить адреса</string>
+    <string name="places_section_custom">Другие адреса</string>
     <string name="payment_title">Способ оплаты</string>
     <string name="payment_section_cards">Карты и бонус</string>
     <string name="payment_section_other">Другие способы</string>
@@ -237,6 +240,7 @@
     <string name="driver_become_error">Что-то пошло не так. Попробуйте ещё раз.</string>
     <string name="driver_become_select_region">Ваш регион</string>
     <string name="driver_become_region_title">Ваш регион</string>
+    <string name="driver_region_search">Поиск</string>
     <string name="service_taxi">Такси</string>
     <string name="service_delivery">Доставка</string>
     <string name="service_intercity">Межгород</string>

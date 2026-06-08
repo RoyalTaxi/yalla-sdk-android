@@ -3,13 +3,13 @@ package uz.yalla.sdk.android.bridges.composites.sheet
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.union
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -51,19 +51,18 @@ internal fun Sheet(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
     dismissEnabled: Boolean = true,
+    sheetSwipeEnabled: Boolean = true,
     title: String? = null,
     onClose: (() -> Unit)? = null,
     headerAction: (@Composable () -> Unit)? = null,
     footer: (@Composable () -> Unit)? = null,
     headerElevated: Boolean = false,
     footerElevated: Boolean = false,
+    fullHeight: Boolean = false,
     content: @Composable (padding: PaddingValues) -> Unit
 ) {
-    val density = LocalDensity.current
     val isDark = CommonSystem.isDark
     var shouldShow by remember { mutableStateOf(false) }
-    var headerHeight by remember { mutableStateOf(0.dp) }
-    var footerHeight by remember { mutableStateOf(0.dp) }
 
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
@@ -84,14 +83,10 @@ internal fun Sheet(
     val hasHeader = title != null || onClose != null || headerAction != null
 
     if (shouldShow) {
-        val navBottom = with(density) {
-            WindowInsets.navigationBars.getBottom(this).toDp()
-        }
-
         YallaTheme(isDark = isDark) {
             ModalBottomSheet(
                 modifier = modifier.statusBarsPadding(),
-                contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+                contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) },
                 onDismissRequest = {
                     if (dismissEnabled) {
                         shouldShow = false
@@ -99,31 +94,40 @@ internal fun Sheet(
                     }
                 },
                 sheetState = sheetState,
+                sheetGesturesEnabled = sheetSwipeEnabled,
                 shape = RoundedCornerShape(
                     topStart = SheetCornerRadius,
                     topEnd = SheetCornerRadius
                 ),
                 containerColor = System.color.background.base,
-                dragHandle = {
+                dragHandle = null
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(if (fullHeight) Modifier.fillMaxHeight() else Modifier)
+                ) {
+                    val density = LocalDensity.current
+                    var dragHandleHeight by remember { mutableStateOf(0.dp) }
+                    var headerHeight by remember { mutableStateOf(0.dp) }
+                    var footerHeight by remember { mutableStateOf(0.dp) }
+
+                    content(
+                        PaddingValues(
+                            top = dragHandleHeight + headerHeight,
+                            bottom = footerHeight
+                        )
+                    )
+
                     DragButton(
                         onClick = {
                             if (dismissEnabled) {
                                 onDismissRequest()
                             }
-                        }
-                    )
-                }
-            ) {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    content(
-                        PaddingValues(
-                            top = (if (hasHeader) headerHeight else 0.dp) + SheetContentSpacing,
-                            bottom = if (footer != null) {
-                                footerHeight + SheetContentSpacing
-                            } else {
-                                navBottom + SheetContentSpacing
-                            }
-                        )
+                        },
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .onSizeChanged { dragHandleHeight = with(density) { it.height.toDp() } }
                     )
 
                     if (hasHeader) {
@@ -134,9 +138,8 @@ internal fun Sheet(
                             elevated = headerElevated,
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
-                                .onSizeChanged { size ->
-                                    headerHeight = with(density) { size.height.toDp() }
-                                }
+                                .padding(top = dragHandleHeight)
+                                .onSizeChanged { headerHeight = with(density) { it.height.toDp() } }
                         )
                     }
 
@@ -146,9 +149,7 @@ internal fun Sheet(
                             content = footer,
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
-                                .onSizeChanged { size ->
-                                    footerHeight = with(density) { size.height.toDp() }
-                                }
+                                .onSizeChanged { footerHeight = with(density) { it.height.toDp() } }
                         )
                     }
                 }
@@ -211,6 +212,10 @@ private fun SheetFooter(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(
+            topStart = SheetCornerRadius,
+            topEnd = SheetCornerRadius
+        ),
         color = System.color.background.base,
         tonalElevation = if (elevated) SheetTonalElevation else 0.dp,
         shadowElevation = if (elevated) SheetFooterShadowElevation else 0.dp
@@ -218,10 +223,11 @@ private fun SheetFooter(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
                 .padding(
-                    horizontal = SheetFooterHorizontalPadding,
-                    vertical = SheetFooterVerticalPadding
+                    start = SheetFooterHorizontalPadding,
+                    end = SheetFooterHorizontalPadding,
+                    top = SheetFooterHorizontalPadding,
+                    bottom = SheetFooterVerticalPadding
                 )
         ) {
             content()

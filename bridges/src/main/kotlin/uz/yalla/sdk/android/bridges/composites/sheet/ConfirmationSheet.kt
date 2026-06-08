@@ -9,21 +9,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import coil3.compose.rememberAsyncImagePainter
 import uz.yalla.components.primitives.button.PrimaryButton
+import uz.yalla.design.image.ThemedImage
+import uz.yalla.design.image.themedPainter
 import uz.yalla.sdk.android.design.theme.System
 
 @Composable
 internal fun ConfirmationSheet(
     isVisible: Boolean,
-    imageResource: String,
+    image: ThemedImage,
     title: String,
     description: String,
     actionText: String,
@@ -31,15 +30,11 @@ internal fun ConfirmationSheet(
     onDismissRequest: () -> Unit,
     dismissEnabled: Boolean
 ) {
-    val context = LocalContext.current
-    val imageResId = remember(imageResource) {
-        context.resources.getIdentifier(imageResource, "drawable", context.packageName)
-    }
-
     Sheet(
         isVisible = isVisible,
         onDismissRequest = onDismissRequest,
         dismissEnabled = dismissEnabled,
+        sheetSwipeEnabled = dismissEnabled,
         onClose = if (dismissEnabled) onDismissRequest else null,
         footer = {
             PrimaryButton(
@@ -62,17 +57,16 @@ internal fun ConfirmationSheet(
         ) {
             Spacer(Modifier.height(32.dp))
 
-            if (imageResId != 0) {
-                Image(
-                    painter = rememberAsyncImagePainter(model = imageResId),
-                    contentDescription = null,
-                    contentScale = ContentScale.Inside,
-                    modifier = Modifier
-                        .fillMaxWidth(0.6f)
-                        .aspectRatio(1f)
-                )
-                Spacer(Modifier.height(36.dp))
-            }
+            Image(
+                painter = themedPainter(image),
+                contentDescription = null,
+                contentScale = ContentScale.Inside,
+                modifier = Modifier
+                    .fillMaxWidth(0.6f)
+                    .aspectRatio(1f)
+            )
+
+            Spacer(Modifier.height(36.dp))
 
             Text(
                 text = title,

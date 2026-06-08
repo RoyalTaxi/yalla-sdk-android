@@ -21,7 +21,7 @@ fun NavigationButton(
     IconButton(
         shape = RoundedCornerShape(12.dp),
         onClick = onClick,
-        modifier = Modifier.size(42.dp),
+        modifier = Modifier.size(44.dp),
         colors = IconButtonDefaults.iconButtonColors(
             contentColor = System.color.icon.base,
             containerColor = System.color.background.secondary,

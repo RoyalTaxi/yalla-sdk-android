@@ -8,9 +8,9 @@ yalla-sdk = "1.0.0-alpha11"
 firebase-bom = "33.12.0"
 kotlinx-datetime = "0.8.0-0.6.x-compat"
 datetime-wheel-picker = "1.3.0"
-google-maps-compose = "8.3.0"
 play-services-maps = "20.0.0"
-maplibre-compose = "0.11.1"
+maplibre-android-sdk = "11.13.0"
+maplibre-android-plugin-annotation = "3.0.2"
 moko-geo = "0.7.0"
 koin = "4.1.1"
 kotlinx-coroutines = "1.11.0"
@@ -31,9 +31,9 @@ yalla-sdk-maps = { module = "uz.yalla.sdk:maps", version.ref = "yalla-sdk" }
 yalla-sdk-media = { module = "uz.yalla.sdk:media", version.ref = "yalla-sdk" }
 yalla-sdk-resources = { module = "uz.yalla.sdk:resources", version.ref = "yalla-sdk" }
 yalla-sdk-telemetry = { module = "uz.yalla.sdk:telemetry", version.ref = "yalla-sdk" }
-google-maps-compose = { module = "com.google.maps.android:maps-compose", version.ref = "google-maps-compose" }
 play-services-maps = { module = "com.google.android.gms:play-services-maps", version.ref = "play-services-maps" }
-maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version.ref = "maplibre-compose" }
+maplibre-android-sdk = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre-android-sdk" }
+maplibre-android-plugin-annotation = { module = "org.maplibre.gl:android-plugin-annotation-v9", version.ref = "maplibre-android-plugin-annotation" }
 geo = { module = "io.github.dellisd.spatialk:geojson", version = "0.3.0" }
 geo-compose = { module = "dev.icerock.moko:geo-compose", version.ref = "moko-geo" }
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }

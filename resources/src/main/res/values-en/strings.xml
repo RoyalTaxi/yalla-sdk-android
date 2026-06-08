@@ -104,6 +104,7 @@
     <string name="places_form_new">New Address</string>
     <string name="places_form_edit">Edit Address</string>
     <string name="places_form_address_hint">Enter address</string>
+    <string name="places_search_empty_hint">Search for an address</string>
     <string name="places_form_name">Address name</string>
     <string name="places_form_building">Building number</string>
     <string name="places_form_entrance">Entrance</string>
@@ -118,6 +119,8 @@
     <string name="places_update_error">Failed to update address</string>
     <string name="places_delete_success">Address deleted successfully</string>
     <string name="places_delete_error">Failed to delete address</string>
+    <string name="places_load_error">Failed to load addresses</string>
+    <string name="places_section_custom">Other addresses</string>
     <string name="payment_title">Payment Method</string>
     <string name="payment_section_cards">Cards and Bonus</string>
     <string name="payment_section_other">Other Methods</string>
@@ -237,6 +240,7 @@
     <string name="driver_become_error">Something went wrong. Please try again.</string>
     <string name="driver_become_select_region">Your region</string>
     <string name="driver_become_region_title">Your region</string>
+    <string name="driver_region_search">Search</string>
     <string name="service_taxi">Taxi</string>
     <string name="service_delivery">Delivery</string>
     <string name="service_intercity">Intercity</string>

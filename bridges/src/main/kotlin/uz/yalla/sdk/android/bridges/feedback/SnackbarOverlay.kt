@@ -1,6 +1,7 @@
 package uz.yalla.sdk.android.bridges.feedback
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
@@ -79,14 +80,23 @@ private fun SnackbarItemRow(
     val density = LocalDensity.current
     var offsetX by remember { mutableFloatStateOf(0f) }
     var itemWidthPx by remember { mutableFloatStateOf(1f) }
+    val visibleState = remember { MutableTransitionState(false).apply { targetState = true } }
 
     LaunchedEffect(item.id) {
         delay(if (item.isError) 5_000L else 3_000L)
-        onDismiss()
+        visibleState.targetState = false
     }
 
+    LaunchedEffect(visibleState.currentState, visibleState.targetState) {
+        if (!visibleState.targetState && !visibleState.currentState) {
+            onDismiss()
+        }
+    }
+
+    val requestDismiss = { visibleState.targetState = false }
+
     AnimatedVisibility(
-        visible = true,
+        visibleState = visibleState,
         enter = slideInVertically(
             initialOffsetY = { -it },
             animationSpec = spring(stiffness = Spring.StiffnessMedium)
@@ -107,7 +117,7 @@ private fun SnackbarItemRow(
                         val velocityThreshold = with(density) { 500.dp.toPx() }
                         val shouldDismiss = abs(offsetX) > threshold || abs(velocity) > velocityThreshold
                         if (shouldDismiss) {
-                            onDismiss()
+                            requestDismiss()
                         } else {
                             offsetX = 0f
                         }
@@ -129,7 +139,7 @@ private fun SnackbarItemRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
-            IconButton(onClick = onDismiss) {
+            IconButton(onClick = requestDismiss) {
                 Icon(
                     imageVector = Icons.Filled.Close,
                     contentDescription = null,

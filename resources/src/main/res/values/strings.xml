@@ -119,6 +119,7 @@
     <string name="places_form_new">Yangi manzil</string>
     <string name="places_form_edit">Manzilni tahrirlash</string>
     <string name="places_form_address_hint">Manzilni kiriting</string>
+    <string name="places_search_empty_hint">Manzilni qidiring</string>
     <string name="places_form_name">Manzil nomi</string>
     <string name="places_form_building">Uy raqami</string>
     <string name="places_form_entrance">Kirish</string>
@@ -133,6 +134,8 @@
     <string name="places_update_error">Manzilni yangilab bo\'lmadi</string>
     <string name="places_delete_success">Manzil muvaffaqiyatli o\'chirildi</string>
     <string name="places_delete_error">Manzilni o\'chirib bo\'lmadi</string>
+    <string name="places_load_error">Manzillarni yuklab bo\'lmadi</string>
+    <string name="places_section_custom">Boshqa manzillar</string>
     <string name="payment_title">To\'lov usuli</string>
     <string name="payment_section_cards">Kartalar va bonus</string>
     <string name="payment_section_other">Boshqa usullar</string>
@@ -252,6 +255,7 @@
     <string name="driver_become_error">Nimadir xato ketdi. Qayta urinib ko\'ring.</string>
     <string name="driver_become_select_region">Viloyatingiz</string>
     <string name="driver_become_region_title">Viloyatingiz</string>
+    <string name="driver_region_search">Qidirish</string>
     <string name="service_taxi">Taksi</string>
     <string name="service_delivery">Yetkazib berish</string>
     <string name="service_intercity">Shaharlararo</string>
