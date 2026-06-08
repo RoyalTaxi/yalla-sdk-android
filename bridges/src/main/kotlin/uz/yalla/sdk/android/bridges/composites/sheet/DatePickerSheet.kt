@@ -58,12 +58,12 @@ internal fun DatePickerSheet(
                 textColor = System.color.text.base,
                 onSnappedDate = { snappedDate = it },
                 selectorProperties = WheelPickerDefaults.selectorProperties(false),
-                modifier = Modifier
-                    .padding(
-                        top = padding.calculateTopPadding(),
-                        bottom = padding.calculateBottomPadding()
-                    )
-                    .padding(horizontal = 16.dp)
+                modifier = Modifier.padding(
+                    top = padding.calculateTopPadding(),
+                    bottom = padding.calculateBottomPadding(),
+                    start = 16.dp,
+                    end = 16.dp
+                )
             )
         }
     }

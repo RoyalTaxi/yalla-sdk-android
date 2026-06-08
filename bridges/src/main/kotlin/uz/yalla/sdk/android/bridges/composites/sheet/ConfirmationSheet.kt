@@ -19,6 +19,12 @@ import uz.yalla.design.image.ThemedImage
 import uz.yalla.design.image.themedPainter
 import uz.yalla.sdk.android.design.theme.System
 
+private val ContentHorizontalPadding = 36.dp
+private val ContentTopSpacing = 32.dp
+private val ImageToTitleSpacing = 36.dp
+private val TitleToDescriptionSpacing = 12.dp
+private val ContentBottomSpacing = 32.dp
+
 @Composable
 internal fun ConfirmationSheet(
     isVisible: Boolean,
@@ -53,9 +59,9 @@ internal fun ConfirmationSheet(
                     top = padding.calculateTopPadding(),
                     bottom = padding.calculateBottomPadding()
                 )
-                .padding(horizontal = 36.dp)
+                .padding(horizontal = ContentHorizontalPadding)
         ) {
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(ContentTopSpacing))
 
             Image(
                 painter = themedPainter(image),
@@ -66,7 +72,7 @@ internal fun ConfirmationSheet(
                     .aspectRatio(1f)
             )
 
-            Spacer(Modifier.height(36.dp))
+            Spacer(Modifier.height(ImageToTitleSpacing))
 
             Text(
                 text = title,
@@ -76,7 +82,7 @@ internal fun ConfirmationSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(TitleToDescriptionSpacing))
 
             Text(
                 text = description,
@@ -86,7 +92,7 @@ internal fun ConfirmationSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(ContentBottomSpacing))
         }
     }
 }
