@@ -11,6 +11,7 @@
     <string name="onboarding_title">Xush kelibsiz</string>
     <string name="permission_title">Ruxsatlar</string>
     <string name="menu_title">Menyu</string>
+    <string name="home_title">Bosh sahifa</string>
     <string name="social_instagram" translatable="false">Instagram</string>
     <string name="social_telegram" translatable="false">Telegram</string>
     <string name="auth_phone_country_code" translatable="false">+998</string>

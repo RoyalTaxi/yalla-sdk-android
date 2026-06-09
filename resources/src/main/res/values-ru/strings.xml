@@ -5,6 +5,7 @@
     <string name="onboarding_title">Добро пожаловать</string>
     <string name="permission_title">Разрешения</string>
     <string name="menu_title">Меню</string>
+    <string name="home_title">Главная</string>
     <string name="common_action_activate">Активировать</string>
     <string name="common_action_all">Все</string>
     <string name="common_action_allow">Разрешить</string>

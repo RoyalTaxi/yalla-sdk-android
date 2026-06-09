@@ -5,6 +5,7 @@
     <string name="onboarding_title">Welcome</string>
     <string name="permission_title">Permissions</string>
     <string name="menu_title">Menu</string>
+    <string name="home_title">Home</string>
     <string name="common_action_activate">Activate</string>
     <string name="common_action_all">All</string>
     <string name="common_action_allow">Allow</string>
