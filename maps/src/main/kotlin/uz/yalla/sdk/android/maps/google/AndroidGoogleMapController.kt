@@ -225,7 +225,11 @@ internal class AndroidGoogleMapController(
         val bounds = builder.build()
         val px = (padding ?: pendingPadding).toPaddingPx(applicationContext)
         val baseMargin = (24 * applicationContext.resources.displayMetrics.density).toInt()
-        val visualMarginPx = maxOf(px.left, px.top, px.right, px.bottom) + baseMargin
+        val view = mapView
+        val maxMargin = if (view != null && view.width > 0 && view.height > 0) {
+            minOf(view.width, view.height) / 2 - 1
+        } else Int.MAX_VALUE
+        val visualMarginPx = (maxOf(px.left, px.top, px.right, px.bottom) + baseMargin).coerceAtMost(maxMargin.coerceAtLeast(0))
         val update = CameraUpdateFactory.newLatLngBounds(bounds, visualMarginPx)
         if (animate) animateCamera(update, MapController.ANIMATION_DURATION) else gm.moveCamera(update)
     }
