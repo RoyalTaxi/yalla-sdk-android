@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Generated from RoyalTaxi/yalla-resources. Do not edit by hand. -->
 <resources>
+    <string name="language_title">Язык</string>
+    <string name="onboarding_title">Добро пожаловать</string>
+    <string name="permission_title">Разрешения</string>
+    <string name="menu_title">Меню</string>
     <string name="common_action_activate">Активировать</string>
     <string name="common_action_all">Все</string>
     <string name="common_action_allow">Разрешить</string>
@@ -25,6 +29,7 @@
     <string name="format_time_min">%1$s мин</string>
     <string name="format_time_min_short">мин</string>
     <string name="format_percent_up_to">До %1$s%%</string>
+    <string name="auth_login_title">Вход</string>
     <string name="auth_welcome_title">Добро пожаловать!</string>
     <string name="auth_welcome_description">Введите номер телефона, чтобы продолжить.</string>
     <string name="auth_welcome_sms_hint">На ваш номер будет отправлено SMS с кодом подтверждения.</string>

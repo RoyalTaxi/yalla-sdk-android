@@ -1,6 +1,7 @@
 package uz.yalla.sdk.android.bridges.composites.sheet
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -74,12 +75,12 @@ internal fun VerificationSheet(
                     top = padding.calculateTopPadding(),
                     bottom = padding.calculateBottomPadding()
                 )
-                .padding(horizontal = 16.dp)
         ) {
             Text(
                 text = headline,
                 style = System.font.title.xLarge,
-                color = System.color.text.base
+                color = System.color.text.base,
+                modifier = Modifier.padding(horizontal = 16.dp)
             )
 
             Spacer(Modifier.height(10.dp))
@@ -87,7 +88,8 @@ internal fun VerificationSheet(
             Text(
                 text = description,
                 style = System.font.body.small.regular,
-                color = System.color.text.subtle
+                color = System.color.text.subtle,
+                modifier = Modifier.padding(horizontal = 16.dp)
             )
 
             Spacer(Modifier.height(32.dp))
@@ -101,6 +103,7 @@ internal fun VerificationSheet(
                 length = codeLength,
                 error = isError,
                 focusRequester = focusRequester,
+                contentPadding = PaddingValues(horizontal = 16.dp),
                 modifier = Modifier.fillMaxWidth()
             )
 

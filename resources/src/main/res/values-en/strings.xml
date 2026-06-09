@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Generated from RoyalTaxi/yalla-resources. Do not edit by hand. -->
 <resources>
+    <string name="language_title">Language</string>
+    <string name="onboarding_title">Welcome</string>
+    <string name="permission_title">Permissions</string>
+    <string name="menu_title">Menu</string>
     <string name="common_action_activate">Activate</string>
     <string name="common_action_all">All</string>
     <string name="common_action_allow">Allow</string>
@@ -25,6 +29,7 @@
     <string name="format_time_min">%1$s min</string>
     <string name="format_time_min_short">min</string>
     <string name="format_percent_up_to">Up to %1$s%%</string>
+    <string name="auth_login_title">Login</string>
     <string name="auth_welcome_title">Welcome!</string>
     <string name="auth_welcome_description">Enter your phone number to continue.</string>
     <string name="auth_welcome_sms_hint">A verification code will be sent to your number via SMS.</string>

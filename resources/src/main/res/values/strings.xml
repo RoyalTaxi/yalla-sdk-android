@@ -7,6 +7,10 @@
     <string name="language_russian" translatable="false">Русский</string>
     <string name="language_uzbek_cyrillic" translatable="false">Ўзбек</string>
     <string name="language_uzbek_latin" translatable="false">O\'zbek</string>
+    <string name="language_title">Til</string>
+    <string name="onboarding_title">Xush kelibsiz</string>
+    <string name="permission_title">Ruxsatlar</string>
+    <string name="menu_title">Menyu</string>
     <string name="social_instagram" translatable="false">Instagram</string>
     <string name="social_telegram" translatable="false">Telegram</string>
     <string name="auth_phone_country_code" translatable="false">+998</string>
@@ -40,6 +44,7 @@
     <string name="format_time_min">%1$s daq</string>
     <string name="format_time_min_short">daq</string>
     <string name="format_percent_up_to">%1$s%% gacha</string>
+    <string name="auth_login_title">Kirish</string>
     <string name="auth_welcome_title">Xush kelibsiz!</string>
     <string name="auth_welcome_description">Davom etish uchun telefon raqamingizni kiriting.</string>
     <string name="auth_welcome_sms_hint">Raqamingizga tasdiqlash kodi bilan SMS yuboriladi.</string>
