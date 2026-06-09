@@ -224,7 +224,6 @@ private fun SheetFooter(
             topEnd = SheetCornerRadius
         ),
         color = System.color.background.base,
-        tonalElevation = if (elevated) SheetTonalElevation else 0.dp,
         shadowElevation = if (elevated) SheetFooterShadowElevation else 0.dp
     ) {
         Box(

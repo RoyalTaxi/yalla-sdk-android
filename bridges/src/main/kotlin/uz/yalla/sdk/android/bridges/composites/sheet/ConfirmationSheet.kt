@@ -34,13 +34,15 @@ internal fun ConfirmationSheet(
     actionText: String,
     onAction: () -> Unit,
     onDismissRequest: () -> Unit,
-    dismissEnabled: Boolean
+    dismissEnabled: Boolean,
+    header: String? = null
 ) {
     Sheet(
         isVisible = isVisible,
         onDismissRequest = onDismissRequest,
         dismissEnabled = dismissEnabled,
         sheetSwipeEnabled = dismissEnabled,
+        title = header,
         onClose = if (dismissEnabled) onDismissRequest else null,
         footer = {
             PrimaryButton(

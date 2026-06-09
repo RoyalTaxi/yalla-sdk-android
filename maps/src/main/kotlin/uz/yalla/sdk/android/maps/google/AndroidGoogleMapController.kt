@@ -210,7 +210,7 @@ internal class AndroidGoogleMapController(
         animateCamera(CameraUpdateFactory.newCameraPosition(target), durationMs)
     }
 
-    override suspend fun fitBounds(points: List<GeoPoint>, animate: Boolean) {
+    override suspend fun fitBounds(points: List<GeoPoint>, animate: Boolean, padding: PaddingValues?) {
         val gm = googleMap ?: return
         val valid = points.filterNot { it == GeoPoint.Zero }.distinctBy { it.lat to it.lng }
         if (valid.isEmpty()) return
@@ -223,7 +223,7 @@ internal class AndroidGoogleMapController(
         val builder = LatLngBounds.Builder()
         valid.forEach { builder.include(it.toLatLng()) }
         val bounds = builder.build()
-        val px = pendingPadding.toPaddingPx(applicationContext)
+        val px = (padding ?: pendingPadding).toPaddingPx(applicationContext)
         val baseMargin = (24 * applicationContext.resources.displayMetrics.density).toInt()
         val visualMarginPx = maxOf(px.left, px.top, px.right, px.bottom) + baseMargin
         val update = CameraUpdateFactory.newLatLngBounds(bounds, visualMarginPx)

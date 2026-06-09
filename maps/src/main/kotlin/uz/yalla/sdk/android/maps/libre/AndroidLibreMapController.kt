@@ -31,7 +31,7 @@ import org.maplibre.android.maps.Style
 import org.maplibre.android.plugins.annotation.Symbol as LibreSymbol
 import org.maplibre.android.plugins.annotation.SymbolManager
 import org.maplibre.android.plugins.annotation.SymbolOptions
-import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
@@ -88,18 +88,21 @@ internal class AndroidLibreMapController(
 
     private var pendingMarkers: List<MapMarker> = emptyList()
     private var pendingRoutes: List<MapRoute> = emptyList()
+    private var pendingCircles: List<MapCircle> = emptyList()
     private var pendingPadding: PaddingValues = PaddingValues()
     private var userInitiatedMove = false
-    private var warnedCirclesUnsupported = false
     private var lockedTarget: GeoPoint? = null
     private var lockedZoom: Float? = null
 
     private val renderedSymbols = HashMap<String, LibreSymbol>()
     private val routeSources = HashMap<String, GeoJsonSource>()
     private val routeLayers = HashMap<String, LineLayer>()
+    private val circleSources = HashMap<String, GeoJsonSource>()
+    private val circleLayers = HashMap<String, CircleLayer>()
     private val uploadedIconKeys = HashSet<String>()
     private val markerData = HashMap<String, MapMarker>()
     private val routeData = HashMap<String, MapRoute>()
+    private val circleData = HashMap<String, MapCircle>()
 
     override fun createView(context: Context, lifecycle: Lifecycle): View {
         ensureMainThread()
@@ -136,13 +139,18 @@ internal class AndroidLibreMapController(
         libreStyle?.also { style ->
             routeLayers.values.forEach { runCatching { style.removeLayer(it) } }
             routeSources.values.forEach { runCatching { style.removeSource(it) } }
+            circleLayers.values.forEach { runCatching { style.removeLayer(it) } }
+            circleSources.values.forEach { runCatching { style.removeSource(it) } }
         }
         symbolManager = null
         renderedSymbols.clear()
         routeLayers.clear()
         routeSources.clear()
+        circleLayers.clear()
+        circleSources.clear()
         markerData.clear()
         routeData.clear()
+        circleData.clear()
         uploadedIconKeys.clear()
         mapView = null
         libreMap = null
@@ -160,6 +168,8 @@ internal class AndroidLibreMapController(
 
     private fun onMapReady(view: MapView, lm: MapLibreMap) {
         libreMap = lm
+        lm.uiSettings.isAttributionEnabled = false
+        lm.uiSettings.isLogoEnabled = false
         lm.setStyle(Style.Builder().fromUri(styleUrl)) { style ->
             libreStyle = style
             symbolManager = SymbolManager(view, lm, style).apply {
@@ -169,6 +179,7 @@ internal class AndroidLibreMapController(
             applyPadding(pendingPadding)
             renderMarkers(pendingMarkers)
             renderRoutes(pendingRoutes)
+            renderCircles(pendingCircles)
             _isReady.value = true
         }
         lm.addOnCameraMoveStartedListener { reason ->
@@ -244,7 +255,7 @@ internal class AndroidLibreMapController(
         animateCamera(lm, CameraUpdateFactory.newCameraPosition(target), durationMs)
     }
 
-    override suspend fun fitBounds(points: List<GeoPoint>, animate: Boolean) {
+    override suspend fun fitBounds(points: List<GeoPoint>, animate: Boolean, padding: PaddingValues?) {
         val lm = libreMap ?: return
         val valid = points.filterNot { it == GeoPoint.Zero }.distinctBy { it.lat to it.lng }
         if (valid.isEmpty()) return
@@ -255,7 +266,7 @@ internal class AndroidLibreMapController(
             return
         }
         val bounds = LatLngBounds.fromLatLngs(valid.map { it.toLatLng() })
-        val px = pendingPadding.toPaddingPx(applicationContext)
+        val px = (padding ?: pendingPadding).toPaddingPx(applicationContext)
         val baseMargin = (24 * applicationContext.resources.displayMetrics.density).toInt()
         val update = CameraUpdateFactory.newLatLngBounds(
             bounds,
@@ -303,14 +314,19 @@ internal class AndroidLibreMapController(
                     }
                     routeSources.clear()
                     routeLayers.clear()
+                    circleSources.clear()
+                    circleLayers.clear()
                     renderedSymbols.clear()
                     uploadedIconKeys.clear()
                     val cachedMarkers = pendingMarkers
                     val cachedRoutes = pendingRoutes
+                    val cachedCircles = pendingCircles
                     markerData.clear()
                     routeData.clear()
+                    circleData.clear()
                     renderMarkers(cachedMarkers)
                     renderRoutes(cachedRoutes)
+                    renderCircles(cachedCircles)
                     kotlin.runCatching { cont.resume(Unit) }
                 }
             }
@@ -338,12 +354,53 @@ internal class AndroidLibreMapController(
 
     override fun setCircles(circles: List<MapCircle>) {
         ensureMainThread()
-        if (circles.isNotEmpty() && !warnedCirclesUnsupported) {
-            warnedCirclesUnsupported = true
-            android.util.Log.w(
-                "YallaMaps",
-                "MapLibre provider does not render MapCircle. Switch to Google or wait for polygon-approximated circles. MapCapabilities.LIBRE.supportsCircles = false."
+        pendingCircles = circles
+        if (libreStyle != null) renderCircles(circles)
+    }
+
+    private fun renderCircles(circles: List<MapCircle>) {
+        val style = libreMap?.style ?: return
+        val incoming = circles.associateBy { it.id }
+        val toRemove = circleData.keys - incoming.keys
+        toRemove.forEach { id ->
+            circleLayers.remove(id)?.let { runCatching { style.removeLayer(it) } }
+            circleSources.remove(id)?.let { runCatching { style.removeSource(it) } }
+            circleData.remove(id)
+        }
+        incoming.forEach { (id, circle) ->
+            val previous = circleData[id]
+            val feature = Feature.fromGeometry(
+                GeoJsonPoint.fromLngLat(circle.center.lng, circle.center.lat)
             )
+            val existingSource = circleSources[id]
+            val existingLayer = circleLayers[id]
+            if (existingSource == null || existingLayer == null) {
+                val sourceId = "yalla-circle-src-$id"
+                val layerId = "yalla-circle-lyr-$id"
+                val source = GeoJsonSource(sourceId, feature)
+                style.addSource(source)
+                val layer = CircleLayer(layerId, sourceId).withProperties(
+                    PropertyFactory.circleRadius(CIRCLE_FILL_RADIUS_PX),
+                    PropertyFactory.circleColor(circle.fillColorArgb),
+                    PropertyFactory.circleStrokeColor(circle.strokeColorArgb),
+                    PropertyFactory.circleStrokeWidth(circle.strokeWidthDp)
+                )
+                style.addLayer(layer)
+                circleSources[id] = source
+                circleLayers[id] = layer
+            } else {
+                if (previous?.center != circle.center) existingSource.setGeoJson(feature)
+                if (previous?.fillColorArgb != circle.fillColorArgb) {
+                    existingLayer.setProperties(PropertyFactory.circleColor(circle.fillColorArgb))
+                }
+                if (previous?.strokeColorArgb != circle.strokeColorArgb) {
+                    existingLayer.setProperties(PropertyFactory.circleStrokeColor(circle.strokeColorArgb))
+                }
+                if (previous?.strokeWidthDp != circle.strokeWidthDp) {
+                    existingLayer.setProperties(PropertyFactory.circleStrokeWidth(circle.strokeWidthDp))
+                }
+            }
+            circleData[id] = circle
         }
     }
 
@@ -364,7 +421,7 @@ internal class AndroidLibreMapController(
         cameraPosition = _cameraPosition.value,
         markers = pendingMarkers,
         routes = pendingRoutes,
-        circles = emptyList(),
+        circles = pendingCircles,
         padding = pendingPadding,
         lockedTarget = lockedTarget,
         lockedZoom = lockedZoom
@@ -471,16 +528,22 @@ internal class AndroidLibreMapController(
                 val layer = LineLayer(layerId, sourceId).withProperties(
                     PropertyFactory.lineCap("round"),
                     PropertyFactory.lineJoin("round"),
-                    PropertyFactory.lineColor(route.colorArgb.toArgbHex()),
+                    PropertyFactory.lineColor(route.colorArgb),
                     PropertyFactory.lineWidth(route.widthDp)
                 )
-                style.addLayer(layer)
+                val anchorCircleLayerId = circleLayers.values.firstOrNull()?.id
+                if (anchorCircleLayerId != null) {
+                    runCatching { style.addLayerBelow(layer, anchorCircleLayerId) }
+                        .onFailure { style.addLayer(layer) }
+                } else {
+                    style.addLayer(layer)
+                }
                 routeSources[id] = source
                 routeLayers[id] = layer
             } else {
                 if (previous?.points != route.points) existingSource.setGeoJson(feature)
                 if (previous?.colorArgb != route.colorArgb) {
-                    existingLayer.setProperties(PropertyFactory.lineColor(route.colorArgb.toArgbHex()))
+                    existingLayer.setProperties(PropertyFactory.lineColor(route.colorArgb))
                 }
                 if (previous?.widthDp != route.widthDp) {
                     existingLayer.setProperties(PropertyFactory.lineWidth(route.widthDp))
@@ -517,8 +580,6 @@ internal class AndroidLibreMapController(
         padding = padding
     )
 
-    private fun Int.toArgbHex(): String = String.format("#%08X", this)
-
     private fun uz.yalla.maps.api.model.Anchor.toLibreAnchor(): String = when {
         y >= 0.9f && x in 0.4f..0.6f -> "bottom"
         y <= 0.1f && x in 0.4f..0.6f -> "top"
@@ -545,5 +606,9 @@ internal class AndroidLibreMapController(
         check(Looper.myLooper() == Looper.getMainLooper()) {
             "MapController must be called on the Android main thread."
         }
+    }
+
+    private companion object {
+        const val CIRCLE_FILL_RADIUS_PX = 4f
     }
 }

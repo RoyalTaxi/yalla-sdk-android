@@ -11,6 +11,28 @@ import uz.yalla.design.image.ThemedImage
 
 class YallaSheetFactory : SheetFactory {
     @Composable
+    override fun ShellContent(
+        isVisible: Boolean,
+        onDismissRequest: () -> Unit,
+        modifier: Modifier,
+        fullHeight: Boolean,
+        sheetSwipeEnabled: Boolean,
+        content: @Composable (padding: PaddingValues) -> Unit
+    ) {
+        Sheet(
+            isVisible = isVisible,
+            onDismissRequest = onDismissRequest,
+            modifier = modifier,
+            sheetSwipeEnabled = sheetSwipeEnabled,
+            title = null,
+            onClose = null,
+            footer = null,
+            fullHeight = fullHeight,
+            content = content
+        )
+    }
+
+    @Composable
     override fun ContentContent(
         isVisible: Boolean,
         onDismissRequest: () -> Unit,
@@ -19,7 +41,6 @@ class YallaSheetFactory : SheetFactory {
         onClose: (() -> Unit)?,
         fullHeight: Boolean,
         sheetSwipeEnabled: Boolean,
-        footer: (@Composable () -> Unit)?,
         content: @Composable (padding: PaddingValues) -> Unit
     ) {
         ContentSheet(
@@ -30,7 +51,6 @@ class YallaSheetFactory : SheetFactory {
             onClose = onClose,
             fullHeight = fullHeight,
             sheetSwipeEnabled = sheetSwipeEnabled,
-            footer = footer,
             content = content
         )
     }
@@ -44,7 +64,8 @@ class YallaSheetFactory : SheetFactory {
         actionText: String,
         onAction: () -> Unit,
         onDismissRequest: () -> Unit,
-        dismissEnabled: Boolean
+        dismissEnabled: Boolean,
+        header: String?
     ) {
         ConfirmationSheet(
             isVisible = isVisible,
@@ -54,7 +75,8 @@ class YallaSheetFactory : SheetFactory {
             actionText = actionText,
             onAction = onAction,
             onDismissRequest = onDismissRequest,
-            dismissEnabled = dismissEnabled
+            dismissEnabled = dismissEnabled,
+            header = header
         )
     }
 
