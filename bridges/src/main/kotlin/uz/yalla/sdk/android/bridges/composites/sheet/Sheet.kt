@@ -3,6 +3,7 @@ package uz.yalla.sdk.android.bridges.composites.sheet
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ime
@@ -60,6 +61,7 @@ internal fun Sheet(
     headerElevated: Boolean = false,
     footerElevated: Boolean = false,
     fullHeight: Boolean = false,
+    imeAsContentPadding: Boolean = false,
     content: @Composable (padding: PaddingValues) -> Unit
 ) {
     val isDark = CommonSystem.isDark
@@ -87,7 +89,10 @@ internal fun Sheet(
         YallaTheme(isDark = isDark) {
             ModalBottomSheet(
                 modifier = modifier.statusBarsPadding(),
-                contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) },
+                contentWindowInsets = {
+                    if (imeAsContentPadding) WindowInsets(0, 0, 0, 0)
+                    else WindowInsets.navigationBars.union(WindowInsets.ime)
+                },
                 onDismissRequest = {
                     if (dismissEnabled) {
                         shouldShow = false
@@ -119,10 +124,17 @@ internal fun Sheet(
                     var headerHeight by remember { mutableStateOf(0.dp) }
                     var footerHeight by remember { mutableStateOf(0.dp) }
 
+                    val insetBottom = if (imeAsContentPadding) {
+                        maxOf(
+                            WindowInsets.ime.asPaddingValues().calculateBottomPadding(),
+                            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                        )
+                    } else 0.dp
+
                     content(
                         PaddingValues(
                             top = dragHandleHeight + headerHeight,
-                            bottom = footerHeight
+                            bottom = footerHeight + insetBottom
                         )
                     )
 

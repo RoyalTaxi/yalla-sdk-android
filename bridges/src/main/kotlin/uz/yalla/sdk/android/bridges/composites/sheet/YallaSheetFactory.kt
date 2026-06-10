@@ -28,6 +28,7 @@ class YallaSheetFactory : SheetFactory {
             onClose = null,
             footer = null,
             fullHeight = fullHeight,
+            imeAsContentPadding = true,
             content = content
         )
     }
