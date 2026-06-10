@@ -4,8 +4,10 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RectF
+import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.util.LruCache
@@ -18,10 +20,19 @@ import uz.yalla.maps.api.model.MapMarkerIcon
 internal object MarkerIconLoader {
 
     private const val MAX_BITMAP_ENTRIES = 64
+    private const val USER_LOCATION_SIZE_DP = 16f
+    private const val USER_LOCATION_STROKE_PX = 2f
+
+    private val userLocationGradientStart = 0xFF3400FF.toInt()
+    private val userLocationGradientEnd = 0xFF886BFF.toInt()
 
     private val bitmapCache = LruCache<MapMarkerIcon, Bitmap>(MAX_BITMAP_ENTRIES)
 
     private val descriptorCache = LruCache<MapMarkerIcon, BitmapDescriptor>(MAX_BITMAP_ENTRIES)
+
+    private var userLocationBitmap: Bitmap? = null
+
+    private var userLocationDescriptor: BitmapDescriptor? = null
 
     fun loadBitmap(context: Context, icon: MapMarkerIcon): Bitmap? {
         bitmapCache.get(icon)?.let { return it }
@@ -39,6 +50,35 @@ internal object MarkerIconLoader {
         val bitmap = loadBitmap(context, icon) ?: return null
         val descriptor = BitmapDescriptorFactory.fromBitmap(bitmap)
         descriptorCache.put(icon, descriptor)
+        return descriptor
+    }
+
+    fun loadUserLocationBitmap(context: Context): Bitmap {
+        userLocationBitmap?.let { return it }
+        val density = context.resources.displayMetrics.density
+        val size = (USER_LOCATION_SIZE_DP * density).toInt().coerceAtLeast(1)
+        val bitmap = createBitmap(size, size)
+        val canvas = Canvas(bitmap)
+        val center = size / 2f
+        val radius = (size - USER_LOCATION_STROKE_PX) / 2f
+        val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(0f, 0f, 0f, size.toFloat(), userLocationGradientStart, userLocationGradientEnd, Shader.TileMode.CLAMP)
+        }
+        canvas.drawCircle(center, center, radius, fillPaint)
+        val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = USER_LOCATION_STROKE_PX
+            shader = LinearGradient(0f, 0f, 0f, size.toFloat(), userLocationGradientEnd, userLocationGradientStart, Shader.TileMode.CLAMP)
+        }
+        canvas.drawCircle(center, center, radius, strokePaint)
+        userLocationBitmap = bitmap
+        return bitmap
+    }
+
+    fun loadUserLocationDescriptor(context: Context): BitmapDescriptor {
+        userLocationDescriptor?.let { return it }
+        val descriptor = BitmapDescriptorFactory.fromBitmap(loadUserLocationBitmap(context))
+        userLocationDescriptor = descriptor
         return descriptor
     }
 

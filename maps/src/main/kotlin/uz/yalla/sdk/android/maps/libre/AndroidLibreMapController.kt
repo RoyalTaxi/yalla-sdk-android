@@ -9,6 +9,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.pow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,9 +34,11 @@ import org.maplibre.android.maps.Style
 import org.maplibre.android.plugins.annotation.Symbol as LibreSymbol
 import org.maplibre.android.plugins.annotation.SymbolManager
 import org.maplibre.android.plugins.annotation.SymbolOptions
+import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.LineString
@@ -90,9 +95,16 @@ internal class AndroidLibreMapController(
     private var pendingRoutes: List<MapRoute> = emptyList()
     private var pendingCircles: List<MapCircle> = emptyList()
     private var pendingPadding: PaddingValues = PaddingValues()
+    private var pendingStyle: MapStyle? = null
+    private var pendingIsDark = false
+    private var interactionEnabled = true
     private var userInitiatedMove = false
     private var lockedTarget: GeoPoint? = null
     private var lockedZoom: Float? = null
+    private var userLocation: GeoPoint? = null
+    private var userLocationSource: GeoJsonSource? = null
+    private var userLocationCircleLayer: CircleLayer? = null
+    private var userLocationDotLayer: SymbolLayer? = null
 
     private val renderedSymbols = HashMap<String, LibreSymbol>()
     private val routeSources = HashMap<String, GeoJsonSource>()
@@ -141,7 +153,13 @@ internal class AndroidLibreMapController(
             routeSources.values.forEach { runCatching { style.removeSource(it) } }
             circleLayers.values.forEach { runCatching { style.removeLayer(it) } }
             circleSources.values.forEach { runCatching { style.removeSource(it) } }
+            userLocationDotLayer?.let { runCatching { style.removeLayer(it) } }
+            userLocationCircleLayer?.let { runCatching { style.removeLayer(it) } }
+            userLocationSource?.let { runCatching { style.removeSource(it) } }
         }
+        userLocationDotLayer = null
+        userLocationCircleLayer = null
+        userLocationSource = null
         symbolManager = null
         renderedSymbols.clear()
         routeLayers.clear()
@@ -170,6 +188,13 @@ internal class AndroidLibreMapController(
         libreMap = lm
         lm.uiSettings.isAttributionEnabled = false
         lm.uiSettings.isLogoEnabled = false
+        lm.uiSettings.isCompassEnabled = false
+        lm.uiSettings.isRotateGesturesEnabled = false
+        lm.uiSettings.isTiltGesturesEnabled = false
+        lm.setMinZoomPreference(MapConstants.ZOOM_MIN)
+        lm.setMaxZoomPreference(MapConstants.ZOOM_MAX)
+        applyInteractionEnabled()
+        pendingStyle?.resolveUrl(pendingIsDark)?.let { styleUrl = it }
         lm.setStyle(Style.Builder().fromUri(styleUrl)) { style ->
             libreStyle = style
             symbolManager = SymbolManager(view, lm, style).apply {
@@ -180,6 +205,7 @@ internal class AndroidLibreMapController(
             renderMarkers(pendingMarkers)
             renderRoutes(pendingRoutes)
             renderCircles(pendingCircles)
+            renderUserLocation()
             _isReady.value = true
         }
         lm.addOnCameraMoveStartedListener { reason ->
@@ -267,7 +293,7 @@ internal class AndroidLibreMapController(
         }
         val bounds = LatLngBounds.fromLatLngs(valid.map { it.toLatLng() })
         val px = (padding ?: pendingPadding).toPaddingPx(applicationContext)
-        val baseMargin = (24 * applicationContext.resources.displayMetrics.density).toInt()
+        val baseMargin = (60 * applicationContext.resources.displayMetrics.density).toInt()
         val update = CameraUpdateFactory.newLatLngBounds(
             bounds,
             px.left + baseMargin,
@@ -294,12 +320,10 @@ internal class AndroidLibreMapController(
     }
 
     override suspend fun setStyle(style: MapStyle, isDark: Boolean) {
+        pendingStyle = style
+        pendingIsDark = isDark
         val lm = libreMap ?: return
-        val newUrl: String? = when (style) {
-            is MapStyle.Url -> if (isDark) style.darkUrl else style.lightUrl
-            is MapStyle.InlineJson -> null
-            MapStyle.PlatformDefault -> null
-        }
+        val newUrl = style.resolveUrl(isDark)
         if (newUrl != null && newUrl != styleUrl) {
             styleUrl = newUrl
             suspendCoroutine<Unit> { cont ->
@@ -318,6 +342,9 @@ internal class AndroidLibreMapController(
                     circleLayers.clear()
                     renderedSymbols.clear()
                     uploadedIconKeys.clear()
+                    userLocationSource = null
+                    userLocationCircleLayer = null
+                    userLocationDotLayer = null
                     val cachedMarkers = pendingMarkers
                     val cachedRoutes = pendingRoutes
                     val cachedCircles = pendingCircles
@@ -327,6 +354,7 @@ internal class AndroidLibreMapController(
                     renderMarkers(cachedMarkers)
                     renderRoutes(cachedRoutes)
                     renderCircles(cachedCircles)
+                    renderUserLocation()
                     kotlin.runCatching { cont.resume(Unit) }
                 }
             }
@@ -338,6 +366,12 @@ internal class AndroidLibreMapController(
         pendingPadding = padding
         applyPadding(padding)
         replayLockedTarget()
+    }
+
+    override fun setInteractionEnabled(enabled: Boolean) {
+        ensureMainThread()
+        interactionEnabled = enabled
+        applyInteractionEnabled()
     }
 
     override fun setMarkers(markers: List<MapMarker>) {
@@ -356,6 +390,12 @@ internal class AndroidLibreMapController(
         ensureMainThread()
         pendingCircles = circles
         if (libreStyle != null) renderCircles(circles)
+    }
+
+    override fun setUserLocation(point: GeoPoint?) {
+        ensureMainThread()
+        userLocation = point
+        if (libreStyle != null) renderUserLocation()
     }
 
     private fun renderCircles(circles: List<MapCircle>) {
@@ -402,6 +442,59 @@ internal class AndroidLibreMapController(
             }
             circleData[id] = circle
         }
+    }
+
+    private fun renderUserLocation() {
+        val style = libreStyle ?: return
+        val point = userLocation
+        if (point == null) {
+            userLocationDotLayer?.let { runCatching { style.removeLayer(it) } }
+            userLocationCircleLayer?.let { runCatching { style.removeLayer(it) } }
+            userLocationSource?.let { runCatching { style.removeSource(it) } }
+            userLocationDotLayer = null
+            userLocationCircleLayer = null
+            userLocationSource = null
+            return
+        }
+        if (USER_LOCATION_ICON_ID !in uploadedIconKeys) {
+            style.addImage(USER_LOCATION_ICON_ID, MarkerIconLoader.loadUserLocationBitmap(applicationContext))
+            uploadedIconKeys.add(USER_LOCATION_ICON_ID)
+        }
+        val feature = Feature.fromGeometry(GeoJsonPoint.fromLngLat(point.lng, point.lat))
+        val existingSource = userLocationSource
+        if (existingSource == null) {
+            val source = GeoJsonSource(USER_LOCATION_SOURCE_ID, feature)
+            style.addSource(source)
+            val circleLayer = CircleLayer(USER_LOCATION_CIRCLE_LAYER_ID, USER_LOCATION_SOURCE_ID).withProperties(
+                PropertyFactory.circleRadius(userLocationRadiusExpression(point.lat)),
+                PropertyFactory.circleColor(USER_LOCATION_FILL_COLOR),
+                PropertyFactory.circleStrokeColor(USER_LOCATION_STROKE_COLOR),
+                PropertyFactory.circleStrokeWidth(1f)
+            )
+            style.addLayer(circleLayer)
+            val dotLayer = SymbolLayer(USER_LOCATION_DOT_LAYER_ID, USER_LOCATION_SOURCE_ID).withProperties(
+                PropertyFactory.iconImage(USER_LOCATION_ICON_ID),
+                PropertyFactory.iconAllowOverlap(true),
+                PropertyFactory.iconIgnorePlacement(true)
+            )
+            style.addLayer(dotLayer)
+            userLocationSource = source
+            userLocationCircleLayer = circleLayer
+            userLocationDotLayer = dotLayer
+        } else {
+            existingSource.setGeoJson(feature)
+            userLocationCircleLayer?.setProperties(PropertyFactory.circleRadius(userLocationRadiusExpression(point.lat)))
+        }
+    }
+
+    private fun userLocationRadiusExpression(lat: Double): Expression {
+        val radiusAtZoomZero = (USER_LOCATION_ACCURACY_METERS / (BASE_METERS_PER_PIXEL * cos(lat * PI / 180.0))).toFloat()
+        return Expression.interpolate(
+            Expression.exponential(2),
+            Expression.zoom(),
+            Expression.stop(0, radiusAtZoomZero),
+            Expression.stop(22, radiusAtZoomZero * 2f.pow(22))
+        )
     }
 
     override fun lockTarget(point: GeoPoint, zoom: Float?) {
@@ -455,6 +548,16 @@ internal class AndroidLibreMapController(
         val lm = libreMap ?: return
         val px = padding.toPaddingPx(applicationContext)
         lm.setPadding(px.left, px.top, px.right, px.bottom)
+    }
+
+    private fun applyInteractionEnabled() {
+        val lm = libreMap ?: return
+        lm.uiSettings.isScrollGesturesEnabled = interactionEnabled
+        lm.uiSettings.isZoomGesturesEnabled = interactionEnabled
+        lm.uiSettings.isDoubleTapGesturesEnabled = interactionEnabled
+        lm.uiSettings.isQuickZoomGesturesEnabled = interactionEnabled
+        lm.uiSettings.isRotateGesturesEnabled = false
+        lm.uiSettings.isTiltGesturesEnabled = false
     }
 
     private fun emitCamera(next: CameraPosition) {
@@ -572,6 +675,12 @@ internal class AndroidLibreMapController(
 
     private fun GeoPoint.toLatLng(): LatLng = LatLng(lat, lng)
 
+    private fun MapStyle.resolveUrl(isDark: Boolean): String? = when (this) {
+        is MapStyle.Url -> if (isDark) darkUrl else lightUrl
+        is MapStyle.InlineJson -> null
+        MapStyle.PlatformDefault -> null
+    }
+
     private fun LibreCameraPosition.toShared(padding: PaddingValues): CameraPosition = CameraPosition(
         target = GeoPoint(target!!.latitude, target!!.longitude),
         zoom = zoom.toFloat(),
@@ -612,5 +721,13 @@ internal class AndroidLibreMapController(
 
     private companion object {
         const val CIRCLE_FILL_RADIUS_PX = 4f
+        const val USER_LOCATION_ACCURACY_METERS = 50.0
+        const val USER_LOCATION_FILL_COLOR = 0x33562DF8
+        const val USER_LOCATION_STROKE_COLOR = 0x66562DF8
+        const val USER_LOCATION_SOURCE_ID = "yalla-user-location-src"
+        const val USER_LOCATION_CIRCLE_LAYER_ID = "yalla-user-location-circle"
+        const val USER_LOCATION_DOT_LAYER_ID = "yalla-user-location-dot"
+        const val USER_LOCATION_ICON_ID = "yalla-icon-user-location"
+        const val BASE_METERS_PER_PIXEL = 156543.03392
     }
 }

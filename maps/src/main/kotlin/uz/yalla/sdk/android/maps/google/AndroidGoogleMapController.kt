@@ -18,13 +18,16 @@ import com.google.android.gms.maps.model.CircleOptions
 import com.google.android.gms.maps.model.Dash
 import com.google.android.gms.maps.model.Dot
 import com.google.android.gms.maps.model.Gap
+import com.google.android.gms.maps.model.JointType
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.maps.model.MapColorScheme
 import com.google.android.gms.maps.model.Marker as GmsMarker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.PatternItem
 import com.google.android.gms.maps.model.Polyline as GmsPolyline
 import com.google.android.gms.maps.model.PolylineOptions
+import com.google.android.gms.maps.model.RoundCap
 import android.view.animation.LinearInterpolator
 import uz.yalla.maps.util.shortestHeadingPath
 import kotlin.coroutines.resume
@@ -55,6 +58,9 @@ import uz.yalla.sdk.android.maps.common.MarkerIconLoader
 import uz.yalla.sdk.android.maps.common.toPaddingPx
 
 private const val MARKER_ANIMATION_MS = 1000L
+private const val USER_LOCATION_ACCURACY_METERS = 50.0
+private const val USER_LOCATION_FILL_COLOR = 0x33562DF8
+private const val USER_LOCATION_STROKE_COLOR = 0x66562DF8
 
 internal class AndroidGoogleMapController(
     private val applicationContext: Context
@@ -85,9 +91,15 @@ internal class AndroidGoogleMapController(
     private var pendingRoutes: List<MapRoute> = emptyList()
     private var pendingCircles: List<MapCircle> = emptyList()
     private var pendingPadding: PaddingValues = PaddingValues()
+    private var pendingStyle: MapStyle? = null
+    private var pendingIsDark = false
+    private var interactionEnabled = true
     private var userInitiatedMove = false
     private var lockedTarget: GeoPoint? = null
     private var lockedZoom: Float? = null
+    private var userLocation: GeoPoint? = null
+    private var userLocationMarker: GmsMarker? = null
+    private var userLocationCircle: GmsCircle? = null
 
     private val renderedMarkers = HashMap<String, GmsMarker>()
 
@@ -138,6 +150,10 @@ internal class AndroidGoogleMapController(
         markerData.clear()
         routeData.clear()
         circleData.clear()
+        userLocationMarker?.remove()
+        userLocationCircle?.remove()
+        userLocationMarker = null
+        userLocationCircle = null
         mapView = null
         googleMap = null
         _isReady.value = false
@@ -153,10 +169,20 @@ internal class AndroidGoogleMapController(
 
     private fun onMapReady(gm: GoogleMap) {
         googleMap = gm
+        gm.uiSettings.isCompassEnabled = false
+        gm.uiSettings.isMapToolbarEnabled = false
+        gm.uiSettings.isRotateGesturesEnabled = false
+        gm.uiSettings.isTiltGesturesEnabled = false
+        gm.isBuildingsEnabled = false
+        gm.setMinZoomPreference(MapConstants.ZOOM_MIN.toFloat())
+        gm.setMaxZoomPreference(MapConstants.ZOOM_MAX.toFloat())
+        applyInteractionEnabled()
         applyPadding(pendingPadding)
         renderMarkers(pendingMarkers)
         renderRoutes(pendingRoutes)
         renderCircles(pendingCircles)
+        renderUserLocation()
+        pendingStyle?.let { applyStyle(gm, it, pendingIsDark) }
         gm.setOnCameraMoveStartedListener { reason ->
             userInitiatedMove = reason == GoogleMap.OnCameraMoveStartedListener.REASON_GESTURE
             if (userInitiatedMove) {
@@ -194,7 +220,7 @@ internal class AndroidGoogleMapController(
         gm.setOnMapLongClickListener { latLng ->
             scope.launch { _events.emit(MapEvent.MapLongPressed(latLng.toGeoPoint())) }
         }
-        _isReady.value = true
+        gm.setOnMapLoadedCallback { _isReady.value = true }
     }
 
     override suspend fun moveTo(point: GeoPoint, zoom: Float) {
@@ -231,7 +257,7 @@ internal class AndroidGoogleMapController(
         valid.forEach { builder.include(it.toLatLng()) }
         val bounds = builder.build()
         val px = (padding ?: pendingPadding).toPaddingPx(applicationContext)
-        val baseMargin = (24 * applicationContext.resources.displayMetrics.density).toInt()
+        val baseMargin = (60 * applicationContext.resources.displayMetrics.density).toInt()
         val view = mapView
         val maxMargin = if (view != null && view.width > 0 && view.height > 0) {
             minOf(view.width, view.height) / 2 - 1
@@ -254,7 +280,14 @@ internal class AndroidGoogleMapController(
     }
 
     override suspend fun setStyle(style: MapStyle, isDark: Boolean) {
+        pendingStyle = style
+        pendingIsDark = isDark
         val gm = googleMap ?: return
+        applyStyle(gm, style, isDark)
+    }
+
+    private fun applyStyle(gm: GoogleMap, style: MapStyle, isDark: Boolean) {
+        gm.setMapColorScheme(if (isDark) MapColorScheme.DARK else MapColorScheme.LIGHT)
         when (style) {
             is MapStyle.InlineJson -> {
                 val json = if (isDark) style.darkJson else style.lightJson
@@ -269,6 +302,12 @@ internal class AndroidGoogleMapController(
         pendingPadding = padding
         applyPadding(padding)
         replayLockedTarget()
+    }
+
+    override fun setInteractionEnabled(enabled: Boolean) {
+        ensureMainThread()
+        interactionEnabled = enabled
+        applyInteractionEnabled()
     }
 
     override fun setMarkers(markers: List<MapMarker>) {
@@ -287,6 +326,12 @@ internal class AndroidGoogleMapController(
         ensureMainThread()
         pendingCircles = circles
         if (googleMap != null) renderCircles(circles)
+    }
+
+    override fun setUserLocation(point: GeoPoint?) {
+        ensureMainThread()
+        userLocation = point
+        if (googleMap != null) renderUserLocation()
     }
 
     override fun lockTarget(point: GeoPoint, zoom: Float?) {
@@ -331,6 +376,14 @@ internal class AndroidGoogleMapController(
         val gm = googleMap ?: return
         val px = padding.toPaddingPx(applicationContext)
         gm.setPadding(px.left, px.top, px.right, px.bottom)
+    }
+
+    private fun applyInteractionEnabled() {
+        val gm = googleMap ?: return
+        gm.uiSettings.isScrollGesturesEnabled = interactionEnabled
+        gm.uiSettings.isZoomGesturesEnabled = interactionEnabled
+        gm.uiSettings.isRotateGesturesEnabled = false
+        gm.uiSettings.isTiltGesturesEnabled = false
     }
 
     private fun emitCamera(next: CameraPosition) {
@@ -423,6 +476,9 @@ internal class AndroidGoogleMapController(
                     .addAll(route.points.map { it.toLatLng() })
                     .color(route.colorArgb)
                     .width(route.widthDp * density)
+                    .startCap(RoundCap())
+                    .endCap(RoundCap())
+                    .jointType(JointType.ROUND)
                     .zIndex(route.zIndex)
                 route.pattern.toGmsPattern(density)?.let(options::pattern)
                 gm.addPolyline(options).also { renderedRoutes[id] = it }
@@ -467,6 +523,43 @@ internal class AndroidGoogleMapController(
                 if (previous?.zIndex != circle.zIndex) existing.zIndex = circle.zIndex
             }
             circleData[id] = circle
+        }
+    }
+
+    private fun renderUserLocation() {
+        val gm = googleMap ?: return
+        val point = userLocation
+        if (point == null) {
+            userLocationMarker?.remove()
+            userLocationCircle?.remove()
+            userLocationMarker = null
+            userLocationCircle = null
+            return
+        }
+        val position = point.toLatLng()
+        val existingMarker = userLocationMarker
+        if (existingMarker == null) {
+            val options = MarkerOptions()
+                .position(position)
+                .anchor(0.5f, 0.5f)
+                .flat(false)
+                .draggable(false)
+                .icon(MarkerIconLoader.loadUserLocationDescriptor(applicationContext))
+            gm.addMarker(options)?.let { userLocationMarker = it }
+        } else {
+            existingMarker.position = position
+        }
+        val existingCircle = userLocationCircle
+        if (existingCircle == null) {
+            val options = CircleOptions()
+                .center(position)
+                .radius(USER_LOCATION_ACCURACY_METERS)
+                .fillColor(USER_LOCATION_FILL_COLOR)
+                .strokeColor(USER_LOCATION_STROKE_COLOR)
+                .strokeWidth(1f)
+            userLocationCircle = gm.addCircle(options)
+        } else {
+            existingCircle.center = position
         }
     }
 
