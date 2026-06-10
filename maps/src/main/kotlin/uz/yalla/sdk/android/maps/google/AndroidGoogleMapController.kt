@@ -1,5 +1,6 @@
 package uz.yalla.sdk.android.maps.google
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.os.Bundle
 import android.os.Looper
@@ -24,6 +25,8 @@ import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.PatternItem
 import com.google.android.gms.maps.model.Polyline as GmsPolyline
 import com.google.android.gms.maps.model.PolylineOptions
+import android.view.animation.LinearInterpolator
+import uz.yalla.maps.util.shortestHeadingPath
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlinx.coroutines.CoroutineScope
@@ -50,6 +53,8 @@ import uz.yalla.maps.api.model.RoutePattern
 import uz.yalla.maps.config.MapConstants
 import uz.yalla.sdk.android.maps.common.MarkerIconLoader
 import uz.yalla.sdk.android.maps.common.toPaddingPx
+
+private const val MARKER_ANIMATION_MS = 1000L
 
 internal class AndroidGoogleMapController(
     private val applicationContext: Context
@@ -85,6 +90,8 @@ internal class AndroidGoogleMapController(
     private var lockedZoom: Float? = null
 
     private val renderedMarkers = HashMap<String, GmsMarker>()
+
+    private val markerAnimators = HashMap<String, ValueAnimator>()
     private val renderedRoutes = HashMap<String, GmsPolyline>()
     private val renderedCircles = HashMap<String, GmsCircle>()
     private val markerData = HashMap<String, MapMarker>()
@@ -338,6 +345,7 @@ internal class AndroidGoogleMapController(
         val incoming = markers.associateBy { it.id }
         val toRemove = renderedMarkers.keys - incoming.keys
         toRemove.forEach { id ->
+            markerAnimators.remove(id)?.cancel()
             renderedMarkers.remove(id)?.remove()
             markerData.remove(id)
         }
@@ -356,8 +364,14 @@ internal class AndroidGoogleMapController(
                 marker.icon?.let { MarkerIconLoader.loadGmsDescriptor(applicationContext, it)?.let(options::icon) }
                 gm.addMarker(options)?.let { renderedMarkers[id] = it }
             } else {
-                if (previous?.point != marker.point) existing.position = marker.point.toLatLng()
-                if (previous?.rotation != marker.rotation) existing.rotation = marker.rotation
+                val moved = previous?.point != marker.point || previous?.rotation != marker.rotation
+                if (moved && marker.flat) {
+                    animateMarker(id, existing, marker)
+                } else if (moved) {
+                    markerAnimators.remove(id)?.cancel()
+                    existing.position = marker.point.toLatLng()
+                    existing.rotation = marker.rotation
+                }
                 if (previous?.flat != marker.flat) existing.isFlat = marker.flat
                 if (previous?.anchor != marker.anchor) existing.setAnchor(marker.anchor.x, marker.anchor.y)
                 if (previous?.zIndex != marker.zIndex) existing.zIndex = marker.zIndex
@@ -368,6 +382,28 @@ internal class AndroidGoogleMapController(
             }
             markerData[id] = marker
         }
+    }
+
+    private fun animateMarker(id: String, gmsMarker: GmsMarker, target: MapMarker) {
+        markerAnimators.remove(id)?.cancel()
+        val startPosition = gmsMarker.position
+        val endPosition = target.point.toLatLng()
+        val startRotation = gmsMarker.rotation
+        val endRotation = shortestHeadingPath(startRotation, target.rotation)
+        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = MARKER_ANIMATION_MS
+            interpolator = LinearInterpolator()
+            addUpdateListener { animation ->
+                val fraction = animation.animatedValue as Float
+                gmsMarker.position = LatLng(
+                    startPosition.latitude + (endPosition.latitude - startPosition.latitude) * fraction,
+                    startPosition.longitude + (endPosition.longitude - startPosition.longitude) * fraction
+                )
+                gmsMarker.rotation = startRotation + (endRotation - startRotation) * fraction
+            }
+        }
+        markerAnimators[id] = animator
+        animator.start()
     }
 
     private fun renderRoutes(routes: List<MapRoute>) {
