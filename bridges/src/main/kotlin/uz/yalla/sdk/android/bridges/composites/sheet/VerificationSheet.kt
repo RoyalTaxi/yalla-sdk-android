@@ -38,6 +38,7 @@ internal fun VerificationSheet(
     isError: Boolean,
     isLoading: Boolean,
     resendEnabled: Boolean,
+    alphanumeric: Boolean,
     onCodeComplete: (String) -> Unit,
     onDismissRequest: () -> Unit,
     dismissEnabled: Boolean
@@ -102,6 +103,7 @@ internal fun VerificationSheet(
                 },
                 length = codeLength,
                 error = isError,
+                alphanumeric = alphanumeric,
                 focusRequester = focusRequester,
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 modifier = Modifier.fillMaxWidth()

@@ -156,6 +156,7 @@ class YallaSheetFactory : SheetFactory {
         isError: Boolean,
         isLoading: Boolean,
         resendEnabled: Boolean,
+        alphanumeric: Boolean,
         onCodeComplete: (String) -> Unit,
         dismissEnabled: Boolean
     ) {
@@ -174,6 +175,7 @@ class YallaSheetFactory : SheetFactory {
             isError = isError,
             isLoading = isLoading,
             resendEnabled = resendEnabled,
+            alphanumeric = alphanumeric,
             onCodeComplete = onCodeComplete,
             onDismissRequest = onDismissRequest,
             dismissEnabled = dismissEnabled
