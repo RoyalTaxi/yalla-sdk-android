@@ -101,6 +101,9 @@ internal class AndroidLibreMapController(
     private var userInitiatedMove = false
     private var lockedTarget: GeoPoint? = null
     private var lockedZoom: Float? = null
+    private var programmaticTarget: GeoPoint? = null
+    private var programmaticZoom: Float? = null
+    private var queuedRecenter: Pair<GeoPoint, Float>? = null
     private var userLocation: GeoPoint? = null
     private var userLocationSource: GeoJsonSource? = null
     private var userLocationCircleLayer: CircleLayer? = null
@@ -213,6 +216,9 @@ internal class AndroidLibreMapController(
             if (userInitiatedMove) {
                 lockedTarget = null
                 lockedZoom = null
+                programmaticTarget = null
+                programmaticZoom = null
+                queuedRecenter = null
             }
         }
         lm.addOnMapClickListener { point ->
@@ -238,6 +244,9 @@ internal class AndroidLibreMapController(
             )
         }
         lm.addOnCameraIdleListener {
+            if (consumeQueuedRecenter()) return@addOnCameraIdleListener
+            programmaticTarget = null
+            programmaticZoom = null
             val pos = lm.cameraPosition.toShared(pendingPadding)
             emitCamera(pos)
             _centerPin.value = CenterPinState(
@@ -251,6 +260,8 @@ internal class AndroidLibreMapController(
 
     override suspend fun moveTo(point: GeoPoint, zoom: Float) {
         val lm = libreMap ?: return
+        programmaticTarget = point
+        programmaticZoom = zoom.clampZoom()
         lm.moveCamera(
             CameraUpdateFactory.newCameraPosition(
                 LibreCameraPosition.Builder()
@@ -263,6 +274,8 @@ internal class AndroidLibreMapController(
 
     override suspend fun animateTo(point: GeoPoint, zoom: Float, durationMs: Int) {
         val lm = libreMap ?: return
+        programmaticTarget = point
+        programmaticZoom = zoom.clampZoom()
         val target = LibreCameraPosition.Builder()
             .target(point.toLatLng())
             .zoom(zoom.clampZoom().toDouble())
@@ -272,6 +285,8 @@ internal class AndroidLibreMapController(
 
     override suspend fun animateToWithBearing(point: GeoPoint, bearing: Float, zoom: Float, durationMs: Int) {
         val lm = libreMap ?: return
+        programmaticTarget = point
+        programmaticZoom = zoom.clampZoom()
         val target = LibreCameraPosition.Builder()
             .target(point.toLatLng())
             .zoom(zoom.clampZoom().toDouble())
@@ -291,6 +306,8 @@ internal class AndroidLibreMapController(
             if (animate) animateTo(single, z, MapController.ANIMATION_DURATION) else moveTo(single, z)
             return
         }
+        programmaticTarget = null
+        programmaticZoom = null
         val bounds = LatLngBounds.fromLatLngs(valid.map { it.toLatLng() })
         val px = (padding ?: pendingPadding).toPaddingPx(applicationContext)
         val baseMargin = (60 * applicationContext.resources.displayMetrics.density).toInt()
@@ -363,9 +380,26 @@ internal class AndroidLibreMapController(
 
     override fun setDesiredPadding(padding: PaddingValues) {
         ensureMainThread()
+        if (padding == pendingPadding && libreMap != null) return
         pendingPadding = padding
         applyPadding(padding)
         replayLockedTarget()
+        val target = programmaticTarget ?: return
+        val lm = libreMap ?: return
+        queuedRecenter = target to (programmaticZoom ?: lm.cameraPosition.zoom.toFloat())
+        if (!_centerPin.value.isMoving) consumeQueuedRecenter()
+    }
+
+    private fun consumeQueuedRecenter(): Boolean {
+        val recenter = queuedRecenter ?: return false
+        queuedRecenter = null
+        val lm = libreMap ?: return false
+        val target = LibreCameraPosition.Builder()
+            .target(recenter.first.toLatLng())
+            .zoom(recenter.second.clampZoom().toDouble())
+            .build()
+        scope.launch { animateCamera(lm, CameraUpdateFactory.newCameraPosition(target), MapController.ANIMATION_DURATION) }
+        return true
     }
 
     override fun setInteractionEnabled(enabled: Boolean) {

@@ -97,6 +97,9 @@ internal class AndroidGoogleMapController(
     private var userInitiatedMove = false
     private var lockedTarget: GeoPoint? = null
     private var lockedZoom: Float? = null
+    private var programmaticTarget: GeoPoint? = null
+    private var programmaticZoom: Float? = null
+    private var queuedRecenter: Pair<GeoPoint, Float>? = null
     private var userLocation: GeoPoint? = null
     private var userLocationMarker: GmsMarker? = null
     private var userLocationCircle: GmsCircle? = null
@@ -188,6 +191,9 @@ internal class AndroidGoogleMapController(
             if (userInitiatedMove) {
                 lockedTarget = null
                 lockedZoom = null
+                programmaticTarget = null
+                programmaticZoom = null
+                queuedRecenter = null
             }
         }
         gm.setOnCameraMoveListener {
@@ -200,6 +206,9 @@ internal class AndroidGoogleMapController(
             )
         }
         gm.setOnCameraIdleListener {
+            if (consumeQueuedRecenter()) return@setOnCameraIdleListener
+            programmaticTarget = null
+            programmaticZoom = null
             val pos = gm.cameraPosition
             emitCamera(pos.toShared(pendingPadding))
             _centerPin.value = CenterPinState(
@@ -225,15 +234,21 @@ internal class AndroidGoogleMapController(
 
     override suspend fun moveTo(point: GeoPoint, zoom: Float) {
         val gm = googleMap ?: return
+        programmaticTarget = point
+        programmaticZoom = zoom.clampZoom()
         gm.moveCamera(CameraUpdateFactory.newLatLngZoom(point.toLatLng(), zoom.clampZoom()))
     }
 
     override suspend fun animateTo(point: GeoPoint, zoom: Float, durationMs: Int) {
+        programmaticTarget = point
+        programmaticZoom = zoom.clampZoom()
         animateCamera(CameraUpdateFactory.newLatLngZoom(point.toLatLng(), zoom.clampZoom()), durationMs)
     }
 
     override suspend fun animateToWithBearing(point: GeoPoint, bearing: Float, zoom: Float, durationMs: Int) {
         val current = googleMap?.cameraPosition ?: return
+        programmaticTarget = point
+        programmaticZoom = zoom.clampZoom()
         val target = GmsCameraPosition.Builder()
             .target(point.toLatLng())
             .zoom(zoom.clampZoom())
@@ -253,6 +268,8 @@ internal class AndroidGoogleMapController(
             if (animate) animateTo(single, z, MapController.ANIMATION_DURATION) else moveTo(single, z)
             return
         }
+        programmaticTarget = null
+        programmaticZoom = null
         val builder = LatLngBounds.Builder()
         valid.forEach { builder.include(it.toLatLng()) }
         val bounds = builder.build()
@@ -299,9 +316,23 @@ internal class AndroidGoogleMapController(
 
     override fun setDesiredPadding(padding: PaddingValues) {
         ensureMainThread()
+        if (padding == pendingPadding && googleMap != null) return
         pendingPadding = padding
         applyPadding(padding)
         replayLockedTarget()
+        val target = programmaticTarget ?: return
+        val gm = googleMap ?: return
+        queuedRecenter = target to (programmaticZoom ?: gm.cameraPosition.zoom)
+        if (!_centerPin.value.isMoving) consumeQueuedRecenter()
+    }
+
+    private fun consumeQueuedRecenter(): Boolean {
+        val recenter = queuedRecenter ?: return false
+        queuedRecenter = null
+        scope.launch {
+            animateCamera(CameraUpdateFactory.newLatLngZoom(recenter.first.toLatLng(), recenter.second.clampZoom()), MapController.ANIMATION_DURATION)
+        }
+        return true
     }
 
     override fun setInteractionEnabled(enabled: Boolean) {
