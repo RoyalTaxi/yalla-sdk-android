@@ -42,6 +42,7 @@ class YallaSheetFactory : SheetFactory {
         onClose: (() -> Unit)?,
         fullHeight: Boolean,
         sheetSwipeEnabled: Boolean,
+        onFullyExpanded: (() -> Unit)?,
         content: @Composable (padding: PaddingValues) -> Unit
     ) {
         ContentSheet(
@@ -52,6 +53,7 @@ class YallaSheetFactory : SheetFactory {
             onClose = onClose,
             fullHeight = fullHeight,
             sheetSwipeEnabled = sheetSwipeEnabled,
+            onFullyExpanded = onFullyExpanded,
             content = content
         )
     }

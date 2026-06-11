@@ -24,12 +24,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import uz.yalla.components.primitives.button.CloseButton
 import uz.yalla.design.theme.System as CommonSystem
 import uz.yalla.sdk.android.components.primitives.button.DragButton
@@ -62,6 +65,7 @@ internal fun Sheet(
     footerElevated: Boolean = false,
     fullHeight: Boolean = false,
     imeAsContentPadding: Boolean = false,
+    onFullyExpanded: (() -> Unit)? = null,
     content: @Composable (padding: PaddingValues) -> Unit
 ) {
     val isDark = CommonSystem.isDark
@@ -81,6 +85,14 @@ internal fun Sheet(
             sheetState.hide()
             shouldShow = false
         }
+    }
+
+    LaunchedEffect(sheetState, onFullyExpanded) {
+        if (onFullyExpanded == null) return@LaunchedEffect
+        snapshotFlow { sheetState.currentValue to sheetState.targetValue }
+            .distinctUntilChanged()
+            .filter { (current, target) -> current == SheetValue.Expanded && current == target }
+            .collect { onFullyExpanded() }
     }
 
     val hasHeader = title != null || onClose != null || headerAction != null

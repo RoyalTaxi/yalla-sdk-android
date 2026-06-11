@@ -229,7 +229,7 @@ internal class AndroidGoogleMapController(
         gm.setOnMapLongClickListener { latLng ->
             scope.launch { _events.emit(MapEvent.MapLongPressed(latLng.toGeoPoint())) }
         }
-        gm.setOnMapLoadedCallback { _isReady.value = true }
+        _isReady.value = true
     }
 
     override suspend fun moveTo(point: GeoPoint, zoom: Float) {

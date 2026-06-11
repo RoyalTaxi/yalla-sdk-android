@@ -13,6 +13,7 @@ internal fun ContentSheet(
     onClose: (() -> Unit)? = null,
     fullHeight: Boolean = false,
     sheetSwipeEnabled: Boolean = true,
+    onFullyExpanded: (() -> Unit)? = null,
     content: @Composable (padding: PaddingValues) -> Unit
 ) {
     Sheet(
@@ -24,6 +25,7 @@ internal fun ContentSheet(
         onClose = onClose,
         footer = null,
         fullHeight = fullHeight,
+        onFullyExpanded = onFullyExpanded,
         content = content
     )
 }

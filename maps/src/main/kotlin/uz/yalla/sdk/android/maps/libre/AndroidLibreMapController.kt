@@ -577,11 +577,17 @@ internal class AndroidLibreMapController(
         }
     }
 
-    @Suppress("DEPRECATION")
     private fun applyPadding(padding: PaddingValues) {
         val lm = libreMap ?: return
         val px = padding.toPaddingPx(applicationContext)
-        lm.setPadding(px.left, px.top, px.right, px.bottom)
+        lm.moveCamera(
+            CameraUpdateFactory.paddingTo(
+                px.left.toDouble(),
+                px.top.toDouble(),
+                px.right.toDouble(),
+                px.bottom.toDouble()
+            )
+        )
     }
 
     private fun applyInteractionEnabled() {
