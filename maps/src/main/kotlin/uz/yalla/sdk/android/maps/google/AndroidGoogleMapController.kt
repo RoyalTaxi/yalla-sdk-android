@@ -145,6 +145,8 @@ internal class AndroidGoogleMapController(
             mv.onStop()
             mv.onDestroy()
         }
+        markerAnimators.values.forEach { it.cancel() }
+        markerAnimators.clear()
         renderedMarkers.values.forEach { it.remove() }
         renderedRoutes.values.forEach { it.remove() }
         renderedCircles.values.forEach { it.remove() }
