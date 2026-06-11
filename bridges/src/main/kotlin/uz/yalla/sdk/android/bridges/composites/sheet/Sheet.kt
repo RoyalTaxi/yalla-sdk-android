@@ -23,6 +23,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -33,6 +34,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.launch
 import uz.yalla.components.primitives.button.CloseButton
 import uz.yalla.design.theme.System as CommonSystem
 import uz.yalla.sdk.android.components.primitives.button.DragButton
@@ -69,6 +71,7 @@ internal fun Sheet(
     content: @Composable (padding: PaddingValues) -> Unit
 ) {
     val isDark = CommonSystem.isDark
+    val scope = rememberCoroutineScope()
     var shouldShow by remember { mutableStateOf(false) }
 
     val sheetState = rememberModalBottomSheetState(
@@ -107,8 +110,10 @@ internal fun Sheet(
                 },
                 onDismissRequest = {
                     if (dismissEnabled) {
-                        shouldShow = false
-                        onDismissRequest()
+                        scope.launch { sheetState.hide() }.invokeOnCompletion {
+                            shouldShow = false
+                            onDismissRequest()
+                        }
                     }
                 },
                 sheetState = sheetState,

@@ -44,6 +44,8 @@ if (useLocalYallaSdk && gradle.parent == null && yallaSdkDir.isDirectory) {
                 .using(project(":design"))
             substitute(module("uz.yalla.sdk:maps"))
                 .using(project(":maps"))
+            substitute(module("uz.yalla.sdk:media"))
+                .using(project(":media"))
             substitute(module("uz.yalla.sdk:resources"))
                 .using(project(":resources"))
             substitute(module("uz.yalla.sdk:telemetry"))

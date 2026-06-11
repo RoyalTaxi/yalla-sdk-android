@@ -101,6 +101,7 @@ internal class AndroidGoogleMapController(
     private var programmaticZoom: Float? = null
     private var queuedRecenter: Pair<GeoPoint, Float>? = null
     private var userLocation: GeoPoint? = null
+    private var userLocationEnabled = true
     private var userLocationMarker: GmsMarker? = null
     private var userLocationCircle: GmsCircle? = null
 
@@ -365,6 +366,12 @@ internal class AndroidGoogleMapController(
         if (googleMap != null) renderUserLocation()
     }
 
+    override fun setUserLocationEnabled(enabled: Boolean) {
+        ensureMainThread()
+        userLocationEnabled = enabled
+        if (googleMap != null) renderUserLocation()
+    }
+
     override fun lockTarget(point: GeoPoint, zoom: Float?) {
         ensureMainThread()
         lockedTarget = point
@@ -559,7 +566,7 @@ internal class AndroidGoogleMapController(
 
     private fun renderUserLocation() {
         val gm = googleMap ?: return
-        val point = userLocation
+        val point = userLocation.takeIf { userLocationEnabled }
         if (point == null) {
             userLocationMarker?.remove()
             userLocationCircle?.remove()

@@ -109,6 +109,7 @@ internal class AndroidLibreMapController(
     private var programmaticZoom: Float? = null
     private var queuedRecenter: Pair<GeoPoint, Float>? = null
     private var userLocation: GeoPoint? = null
+    private var userLocationEnabled = true
     private var userLocationSource: GeoJsonSource? = null
     private var userLocationCircleLayer: CircleLayer? = null
     private var userLocationDotLayer: SymbolLayer? = null
@@ -458,6 +459,12 @@ internal class AndroidLibreMapController(
         if (libreStyle != null) renderUserLocation()
     }
 
+    override fun setUserLocationEnabled(enabled: Boolean) {
+        ensureMainThread()
+        userLocationEnabled = enabled
+        if (libreStyle != null) renderUserLocation()
+    }
+
     private fun renderCircles(circles: List<MapCircle>) {
         val style = libreMap?.style ?: return
         val incoming = circles.associateBy { it.id }
@@ -515,7 +522,7 @@ internal class AndroidLibreMapController(
 
     private fun renderUserLocation() {
         val style = libreStyle ?: return
-        val point = userLocation
+        val point = userLocation.takeIf { userLocationEnabled }
         if (point == null) {
             userLocationDotLayer?.let { runCatching { style.removeLayer(it) } }
             userLocationCircleLayer?.let { runCatching { style.removeLayer(it) } }
