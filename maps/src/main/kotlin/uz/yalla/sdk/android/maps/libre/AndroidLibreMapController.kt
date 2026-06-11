@@ -205,10 +205,10 @@ internal class AndroidLibreMapController(
         lm.setMinZoomPreference(MapConstants.ZOOM_MIN)
         lm.setMaxZoomPreference(MapConstants.ZOOM_MAX)
         applyInteractionEnabled()
-        applyPadding(pendingPadding)
         pendingStyle?.resolveUrl(pendingIsDark)?.let { styleUrl = it }
         lm.setStyle(Style.Builder().fromUri(styleUrl)) { style ->
             libreStyle = style
+            applyPadding(pendingPadding)
             attachSymbolManager(view, lm, style)
             renderMarkers(pendingMarkers)
             renderRoutes(pendingRoutes)
