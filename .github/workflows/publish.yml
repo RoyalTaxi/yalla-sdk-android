@@ -1,0 +1,62 @@
+name: Publish
+
+on:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to GitHub Packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      GITHUB_ACTOR: ${{ secrets.GH_PACKAGES_USER }}
+      GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure GitHub Packages credentials
+        run: |
+          mkdir -p ~/.gradle
+          cat <<EOF > ~/.gradle/gradle.properties
+          gpr.user=${GITHUB_ACTOR}
+          gpr.key=${GITHUB_TOKEN}
+          EOF
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 17
+          cache: 'gradle'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+
+      - name: Grant execute permissions for gradlew
+        run: chmod +x gradlew
+
+      # yalla-sdk-android consumes uz.yalla.sdk:* from GitHub Packages in CI;
+      # the sibling ../yalla-sdk checkout is absent so the composite-build
+      # substitution in settings.gradle.kts falls back to the published
+      # artifacts automatically (useLocalYallaSdk guards on the dir existing).
+      - name: Publish android library artifacts
+        run: |
+          ./gradlew publishAllPublicationsToGitHubPackagesRepository \
+            --no-daemon \
+            --no-configuration-cache \
+            --stacktrace \
+            -Dorg.gradle.workers.max=2 \
+            "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" \
+            "-Dkotlin.daemon.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m"
