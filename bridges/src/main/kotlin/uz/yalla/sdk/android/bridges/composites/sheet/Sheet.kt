@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -24,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -74,16 +76,19 @@ internal fun Sheet(
     val scope = rememberCoroutineScope()
     var shouldShow by remember { mutableStateOf(false) }
 
+    val currentIsVisible = rememberUpdatedState(isVisible)
+    val currentDismissEnabled = rememberUpdatedState(dismissEnabled)
+    val confirmValueChange = remember {
+        { value: SheetValue -> !shouldBlockHide(value, currentDismissEnabled.value, currentIsVisible.value) }
+    }
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
-        confirmValueChange = { value ->
-            !(value == SheetValue.Hidden && !dismissEnabled)
-        }
+        confirmValueChange = confirmValueChange
     )
 
     LaunchedEffect(isVisible) {
         if (isVisible) {
-            shouldShow = true
+            if (shouldShow) sheetState.show() else shouldShow = true
         } else if (shouldShow) {
             sheetState.hide()
             shouldShow = false
@@ -118,6 +123,7 @@ internal fun Sheet(
                 },
                 sheetState = sheetState,
                 sheetGesturesEnabled = sheetSwipeEnabled,
+                properties = ModalBottomSheetProperties(shouldDismissOnBackPress = dismissEnabled),
                 shape = RoundedCornerShape(
                     topStart = SheetCornerRadius,
                     topEnd = SheetCornerRadius
@@ -268,4 +274,13 @@ private fun SheetFooter(
             content()
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+internal fun shouldBlockHide(
+    value: SheetValue,
+    dismissEnabled: Boolean,
+    isVisible: Boolean
+): Boolean {
+    return value == SheetValue.Hidden && !dismissEnabled && isVisible
 }

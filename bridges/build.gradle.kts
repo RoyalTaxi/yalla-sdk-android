@@ -64,6 +64,8 @@ dependencies {
     implementation(libs.datetime.wheel.picker)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    testImplementation(libs.kotlin.test)
 }
 
 afterEvaluate {
