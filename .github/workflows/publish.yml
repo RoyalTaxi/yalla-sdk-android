@@ -16,6 +16,7 @@ concurrency:
 jobs:
   publish:
     name: Publish to GitHub Packages
+    if: startsWith(github.event.head_commit.message, 'release(') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
