@@ -3,6 +3,7 @@ package uz.yalla.sdk.android.maps.google
 import android.animation.ValueAnimator
 import android.content.Context
 import android.os.Bundle
+import android.os.Handler
 import android.os.Looper
 import android.view.View
 import androidx.compose.foundation.layout.PaddingValues
@@ -84,6 +85,7 @@ internal class AndroidGoogleMapController(
     private var googleMap: GoogleMap? = null
     private var lifecycleObserver: LifecycleEventObserver? = null
     private var attachedLifecycle: Lifecycle? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var closed = false
     private var lastEmittedCamera: CameraPosition? = null
 
@@ -97,8 +99,6 @@ internal class AndroidGoogleMapController(
     private var userInitiatedMove = false
     private var lockedTarget: GeoPoint? = null
     private var lockedZoom: Float? = null
-    private var programmaticTarget: GeoPoint? = null
-    private var programmaticZoom: Float? = null
     private var pendingFit: PendingFit? = null
     private var userLocation: GeoPoint? = null
     private var userLocationEnabled = true
@@ -204,8 +204,6 @@ internal class AndroidGoogleMapController(
             if (userInitiatedMove) {
                 lockedTarget = null
                 lockedZoom = null
-                programmaticTarget = null
-                programmaticZoom = null
             }
         }
         gm.setOnCameraMoveListener {
@@ -218,8 +216,6 @@ internal class AndroidGoogleMapController(
             )
         }
         gm.setOnCameraIdleListener {
-            programmaticTarget = null
-            programmaticZoom = null
             val pos = gm.cameraPosition
             emitCamera(pos.toShared(pendingPadding))
             _centerPin.value = CenterPinState(
@@ -248,23 +244,17 @@ internal class AndroidGoogleMapController(
     override suspend fun moveTo(point: GeoPoint, zoom: Float) {
         pendingFit = null
         val gm = googleMap ?: return
-        programmaticTarget = point
-        programmaticZoom = zoom.clampZoom()
         gm.moveCamera(CameraUpdateFactory.newLatLngZoom(point.toLatLng(), zoom.clampZoom()))
     }
 
     override suspend fun animateTo(point: GeoPoint, zoom: Float, durationMs: Int) {
         pendingFit = null
-        programmaticTarget = point
-        programmaticZoom = zoom.clampZoom()
         animateCamera(CameraUpdateFactory.newLatLngZoom(point.toLatLng(), zoom.clampZoom()), durationMs)
     }
 
     override suspend fun animateToWithBearing(point: GeoPoint, bearing: Float, zoom: Float, durationMs: Int) {
         pendingFit = null
         val current = googleMap?.cameraPosition ?: return
-        programmaticTarget = point
-        programmaticZoom = zoom.clampZoom()
         val target = GmsCameraPosition.Builder()
             .target(point.toLatLng())
             .zoom(zoom.clampZoom())
@@ -290,8 +280,6 @@ internal class AndroidGoogleMapController(
             if (animate) animateTo(single, z, MapController.ANIMATION_DURATION) else moveTo(single, z)
             return
         }
-        programmaticTarget = null
-        programmaticZoom = null
         val builder = LatLngBounds.Builder()
         valid.forEach { builder.include(it.toLatLng()) }
         val bounds = builder.build()
@@ -608,7 +596,7 @@ internal class AndroidGoogleMapController(
     private suspend fun animateCamera(update: com.google.android.gms.maps.CameraUpdate, durationMs: Int) {
         val gm = googleMap ?: return
         suspendCancellableCoroutine<Unit> { cont ->
-            cont.invokeOnCancellation { gm.stopAnimation() }
+            cont.invokeOnCancellation { mainHandler.post { gm.stopAnimation() } }
             gm.animateCamera(update, durationMs, object : GoogleMap.CancelableCallback {
                 override fun onFinish() { if (cont.isActive) cont.resume(Unit) }
                 override fun onCancel() { if (cont.isActive) cont.resume(Unit) }
