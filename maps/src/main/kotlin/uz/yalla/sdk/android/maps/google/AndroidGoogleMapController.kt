@@ -86,6 +86,9 @@ internal class AndroidGoogleMapController(
     private var lifecycleObserver: LifecycleEventObserver? = null
     private var attachedLifecycle: Lifecycle? = null
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var animationInFlight = false
+    private var animationGeneration = 0
+    private var paddingDirty = false
     private var closed = false
     private var lastEmittedCamera: CameraPosition? = null
 
@@ -404,8 +407,14 @@ internal class AndroidGoogleMapController(
 
     private fun applyPadding(padding: PaddingValues) {
         val gm = googleMap ?: return
+        if (animationInFlight) {
+            paddingDirty = true
+            return
+        }
+        val target = gm.cameraPosition.target
         val px = padding.toPaddingPx(applicationContext)
         gm.setPadding(px.left, px.top, px.right, px.bottom)
+        gm.moveCamera(com.google.android.gms.maps.CameraUpdateFactory.newLatLng(target))
     }
 
     private fun applyInteractionEnabled() {
@@ -596,11 +605,22 @@ internal class AndroidGoogleMapController(
     private suspend fun animateCamera(update: com.google.android.gms.maps.CameraUpdate, durationMs: Int) {
         val gm = googleMap ?: return
         suspendCancellableCoroutine<Unit> { cont ->
+            val generation = ++animationGeneration
             cont.invokeOnCancellation { mainHandler.post { gm.stopAnimation() } }
+            animationInFlight = true
             gm.animateCamera(update, durationMs, object : GoogleMap.CancelableCallback {
-                override fun onFinish() { if (cont.isActive) cont.resume(Unit) }
-                override fun onCancel() { if (cont.isActive) cont.resume(Unit) }
+                override fun onFinish() { onAnimationEnd(generation); if (cont.isActive) cont.resume(Unit) }
+                override fun onCancel() { onAnimationEnd(generation); if (cont.isActive) cont.resume(Unit) }
             })
+        }
+    }
+
+    private fun onAnimationEnd(generation: Int) {
+        if (generation != animationGeneration) return
+        animationInFlight = false
+        if (paddingDirty) {
+            paddingDirty = false
+            applyPadding(pendingPadding)
         }
     }
 
