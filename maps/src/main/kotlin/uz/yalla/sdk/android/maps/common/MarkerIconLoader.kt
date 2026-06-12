@@ -40,6 +40,7 @@ internal object MarkerIconLoader {
             is MapMarkerIcon.Resource -> resourceBitmap(context, icon.name)
             is MapMarkerIcon.Bytes -> BitmapFactory.decodeByteArray(icon.data, 0, icon.data.size)
             is MapMarkerIcon.Pin -> pinBitmap(context, icon)
+            is MapMarkerIcon.Dot -> dotBitmap(context, icon)
         } ?: return null
         bitmapCache.put(icon, bitmap)
         return bitmap
@@ -80,6 +81,25 @@ internal object MarkerIconLoader {
         val descriptor = BitmapDescriptorFactory.fromBitmap(loadUserLocationBitmap(context))
         userLocationDescriptor = descriptor
         return descriptor
+    }
+
+    private fun dotBitmap(context: Context, icon: MapMarkerIcon.Dot): Bitmap {
+        val density = context.resources.displayMetrics.density
+        val strokePx = icon.strokeWidthDp * density
+        val size = ((icon.diameterDp + icon.strokeWidthDp) * density).toInt().coerceAtLeast(1)
+        val bitmap = createBitmap(size, size)
+        val canvas = Canvas(bitmap)
+        val center = size / 2f
+        val radius = (size - strokePx) / 2f
+        val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = icon.fillColorArgb }
+        canvas.drawCircle(center, center, radius, fillPaint)
+        val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = strokePx
+            color = icon.strokeColorArgb
+        }
+        canvas.drawCircle(center, center, radius, strokePaint)
+        return bitmap
     }
 
     private fun pinBitmap(context: Context, icon: MapMarkerIcon.Pin): Bitmap {

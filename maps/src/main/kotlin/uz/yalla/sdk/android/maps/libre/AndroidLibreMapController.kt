@@ -860,6 +860,8 @@ internal class AndroidLibreMapController(
             "yalla-icon-bytes-${icon.data.contentHashCode().toUInt().toString(16)}"
         is uz.yalla.maps.api.model.MapMarkerIcon.Pin ->
             "yalla-icon-pin-${icon.colorArgb.toUInt().toString(16)}-${icon.label.orEmpty().hashCode().toUInt().toString(16)}"
+        is uz.yalla.maps.api.model.MapMarkerIcon.Dot ->
+            "yalla-icon-dot-${icon.fillColorArgb.toUInt().toString(16)}-${icon.strokeColorArgb.toUInt().toString(16)}-${icon.diameterDp}-${icon.strokeWidthDp}"
     }
 
     private fun cameraEpsilonEqual(a: CameraPosition, b: CameraPosition): Boolean {
