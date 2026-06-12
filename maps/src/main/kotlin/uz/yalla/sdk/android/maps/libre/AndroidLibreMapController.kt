@@ -359,7 +359,7 @@ internal class AndroidLibreMapController(
         }
         val target = LibreCameraPosition.Builder()
             .target(fitted.target)
-            .zoom(fitted.zoom.toFloat().clampZoom().toDouble())
+            .zoom(fitted.zoom.coerceAtMost(MapConstants.FIT_ZOOM_MAX).toFloat().clampZoom().toDouble())
             .bearing(0.0)
             .tilt(0.0)
             .padding(fitPadding[0].toDouble(), fitPadding[1].toDouble(), fitPadding[2].toDouble(), fitPadding[3].toDouble())

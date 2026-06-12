@@ -291,7 +291,12 @@ internal class AndroidGoogleMapController(
         val margin = maxOf(marginPx.left, marginPx.top, marginPx.right, marginPx.bottom)
         val maxMargin = ((minOf(view.width - basePx.left - basePx.right, view.height - basePx.top - basePx.bottom) / 2) - 1).coerceAtLeast(0)
         val update = CameraUpdateFactory.newLatLngBounds(bounds, margin.coerceAtMost(maxMargin))
-        if (animate) animateCamera(update, MapController.ANIMATION_DURATION) else gm.moveCamera(update)
+        gm.setMaxZoomPreference(MapConstants.FIT_ZOOM_MAX.toFloat())
+        try {
+            if (animate) animateCamera(update, MapController.ANIMATION_DURATION) else gm.moveCamera(update)
+        } finally {
+            gm.setMaxZoomPreference(MapConstants.ZOOM_MAX.toFloat())
+        }
     }
 
     override suspend fun zoomIn() {
