@@ -31,7 +31,6 @@ import com.google.android.gms.maps.model.RoundCap
 import android.view.animation.LinearInterpolator
 import uz.yalla.maps.util.shortestHeadingPath
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -42,6 +41,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import uz.yalla.core.geo.GeoPoint
 import uz.yalla.maps.api.AndroidMapController
 import uz.yalla.maps.api.MapController
@@ -99,7 +99,7 @@ internal class AndroidGoogleMapController(
     private var lockedZoom: Float? = null
     private var programmaticTarget: GeoPoint? = null
     private var programmaticZoom: Float? = null
-    private var queuedRecenter: Pair<GeoPoint, Float>? = null
+    private var pendingFit: PendingFit? = null
     private var userLocation: GeoPoint? = null
     private var userLocationEnabled = true
     private var userLocationMarker: GmsMarker? = null
@@ -133,8 +133,17 @@ internal class AndroidGoogleMapController(
         }
         lifecycleObserver = observer
         lifecycle.addObserver(observer)
+        view.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            if (v.width > 0 && v.height > 0 && _isReady.value) flushPendingFit()
+        }
         view.getMapAsync { gm -> onMapReady(gm) }
         return view
+    }
+
+    private fun flushPendingFit() {
+        val fit = pendingFit ?: return
+        pendingFit = null
+        scope.launch { fitBounds(fit.points, fit.animate, fit.padding) }
     }
 
     override fun detach() {
@@ -160,6 +169,7 @@ internal class AndroidGoogleMapController(
         userLocationCircle?.remove()
         userLocationMarker = null
         userLocationCircle = null
+        pendingFit = null
         mapView = null
         googleMap = null
         _isReady.value = false
@@ -196,7 +206,6 @@ internal class AndroidGoogleMapController(
                 lockedZoom = null
                 programmaticTarget = null
                 programmaticZoom = null
-                queuedRecenter = null
             }
         }
         gm.setOnCameraMoveListener {
@@ -209,7 +218,6 @@ internal class AndroidGoogleMapController(
             )
         }
         gm.setOnCameraIdleListener {
-            if (consumeQueuedRecenter()) return@setOnCameraIdleListener
             programmaticTarget = null
             programmaticZoom = null
             val pos = gm.cameraPosition
@@ -233,9 +241,12 @@ internal class AndroidGoogleMapController(
             scope.launch { _events.emit(MapEvent.MapLongPressed(latLng.toGeoPoint())) }
         }
         _isReady.value = true
+        val view = mapView
+        if (view != null && view.width > 0 && view.height > 0) flushPendingFit()
     }
 
     override suspend fun moveTo(point: GeoPoint, zoom: Float) {
+        pendingFit = null
         val gm = googleMap ?: return
         programmaticTarget = point
         programmaticZoom = zoom.clampZoom()
@@ -243,12 +254,14 @@ internal class AndroidGoogleMapController(
     }
 
     override suspend fun animateTo(point: GeoPoint, zoom: Float, durationMs: Int) {
+        pendingFit = null
         programmaticTarget = point
         programmaticZoom = zoom.clampZoom()
         animateCamera(CameraUpdateFactory.newLatLngZoom(point.toLatLng(), zoom.clampZoom()), durationMs)
     }
 
     override suspend fun animateToWithBearing(point: GeoPoint, bearing: Float, zoom: Float, durationMs: Int) {
+        pendingFit = null
         val current = googleMap?.cameraPosition ?: return
         programmaticTarget = point
         programmaticZoom = zoom.clampZoom()
@@ -262,9 +275,15 @@ internal class AndroidGoogleMapController(
     }
 
     override suspend fun fitBounds(points: List<GeoPoint>, animate: Boolean, padding: PaddingValues?) {
-        val gm = googleMap ?: return
+        pendingFit = null
         val valid = points.filterNot { it == GeoPoint.Zero }.distinctBy { it.lat to it.lng }
         if (valid.isEmpty()) return
+        val gm = googleMap
+        val view = mapView
+        if (gm == null || view == null || view.width == 0 || view.height == 0) {
+            pendingFit = PendingFit(points, animate, padding)
+            return
+        }
         if (valid.size == 1) {
             val single = valid.first()
             val z = gm.cameraPosition.zoom.clampZoom()
@@ -276,14 +295,11 @@ internal class AndroidGoogleMapController(
         val builder = LatLngBounds.Builder()
         valid.forEach { builder.include(it.toLatLng()) }
         val bounds = builder.build()
-        val px = (padding ?: pendingPadding).toPaddingPx(applicationContext)
-        val baseMargin = (60 * applicationContext.resources.displayMetrics.density).toInt()
-        val view = mapView
-        val maxMargin = if (view != null && view.width > 0 && view.height > 0) {
-            minOf(view.width, view.height) / 2 - 1
-        } else Int.MAX_VALUE
-        val visualMarginPx = (maxOf(px.left, px.top, px.right, px.bottom) + baseMargin).coerceAtMost(maxMargin.coerceAtLeast(0))
-        val update = CameraUpdateFactory.newLatLngBounds(bounds, visualMarginPx)
+        val basePx = pendingPadding.toPaddingPx(applicationContext)
+        val marginPx = (padding ?: PaddingValues(MapConstants.DEFAULT_PADDING)).toPaddingPx(applicationContext)
+        val margin = maxOf(marginPx.left, marginPx.top, marginPx.right, marginPx.bottom)
+        val maxMargin = ((minOf(view.width - basePx.left - basePx.right, view.height - basePx.top - basePx.bottom) / 2) - 1).coerceAtLeast(0)
+        val update = CameraUpdateFactory.newLatLngBounds(bounds, margin.coerceAtMost(maxMargin))
         if (animate) animateCamera(update, MapController.ANIMATION_DURATION) else gm.moveCamera(update)
     }
 
@@ -322,20 +338,6 @@ internal class AndroidGoogleMapController(
         if (padding == pendingPadding && googleMap != null) return
         pendingPadding = padding
         applyPadding(padding)
-        replayLockedTarget()
-        val target = programmaticTarget ?: return
-        val gm = googleMap ?: return
-        queuedRecenter = target to (programmaticZoom ?: gm.cameraPosition.zoom)
-        if (!_centerPin.value.isMoving) consumeQueuedRecenter()
-    }
-
-    private fun consumeQueuedRecenter(): Boolean {
-        val recenter = queuedRecenter ?: return false
-        queuedRecenter = null
-        scope.launch {
-            animateCamera(CameraUpdateFactory.newLatLngZoom(recenter.first.toLatLng(), recenter.second.clampZoom()), MapController.ANIMATION_DURATION)
-        }
-        return true
     }
 
     override fun setInteractionEnabled(enabled: Boolean) {
@@ -605,12 +607,12 @@ internal class AndroidGoogleMapController(
 
     private suspend fun animateCamera(update: com.google.android.gms.maps.CameraUpdate, durationMs: Int) {
         val gm = googleMap ?: return
-        suspendCoroutine<Unit> { cont ->
-            val callback = object : GoogleMap.CancelableCallback {
-                override fun onFinish() { cont.resume(Unit) }
-                override fun onCancel() { cont.resume(Unit) }
-            }
-            gm.animateCamera(update, durationMs, callback)
+        suspendCancellableCoroutine<Unit> { cont ->
+            cont.invokeOnCancellation { gm.stopAnimation() }
+            gm.animateCamera(update, durationMs, object : GoogleMap.CancelableCallback {
+                override fun onFinish() { if (cont.isActive) cont.resume(Unit) }
+                override fun onCancel() { if (cont.isActive) cont.resume(Unit) }
+            })
         }
     }
 
@@ -648,4 +650,10 @@ internal class AndroidGoogleMapController(
             "MapController must be called on the Android main thread."
         }
     }
+
+    private data class PendingFit(
+        val points: List<GeoPoint>,
+        val animate: Boolean,
+        val padding: PaddingValues?
+    )
 }

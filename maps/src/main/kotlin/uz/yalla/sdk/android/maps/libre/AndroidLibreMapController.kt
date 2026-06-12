@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition as LibreCameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -107,7 +108,11 @@ internal class AndroidLibreMapController(
     private var lockedZoom: Float? = null
     private var programmaticTarget: GeoPoint? = null
     private var programmaticZoom: Float? = null
-    private var queuedRecenter: Pair<GeoPoint, Float>? = null
+    private var pendingFit: PendingFit? = null
+    private var animationInFlight = false
+    private var animationGeneration = 0
+    private var cameraMoving = false
+    private var paddingDirty = false
     private var userLocation: GeoPoint? = null
     private var userLocationEnabled = true
     private var userLocationSource: GeoJsonSource? = null
@@ -146,8 +151,17 @@ internal class AndroidLibreMapController(
         }
         lifecycleObserver = observer
         lifecycle.addObserver(observer)
+        view.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            if (v.width > 0 && v.height > 0 && _isReady.value) flushPendingFit()
+        }
         view.getMapAsync { lm -> onMapReady(view, lm) }
         return view
+    }
+
+    private fun flushPendingFit() {
+        val fit = pendingFit ?: return
+        pendingFit = null
+        scope.launch { fitBounds(fit.points, fit.animate, fit.padding) }
     }
 
     override fun detach() {
@@ -182,6 +196,7 @@ internal class AndroidLibreMapController(
         routeData.clear()
         circleData.clear()
         uploadedIconKeys.clear()
+        pendingFit = null
         mapView = null
         libreMap = null
         libreStyle = null
@@ -216,15 +231,16 @@ internal class AndroidLibreMapController(
             renderCircles(pendingCircles)
             renderUserLocation()
             _isReady.value = true
+            if (view.width > 0 && view.height > 0) flushPendingFit()
         }
         lm.addOnCameraMoveStartedListener { reason ->
+            cameraMoving = true
             userInitiatedMove = reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE
             if (userInitiatedMove) {
                 lockedTarget = null
                 lockedZoom = null
                 programmaticTarget = null
                 programmaticZoom = null
-                queuedRecenter = null
             }
         }
         lm.addOnMapClickListener { point ->
@@ -245,7 +261,11 @@ internal class AndroidLibreMapController(
             )
         }
         lm.addOnCameraIdleListener {
-            if (consumeQueuedRecenter()) return@addOnCameraIdleListener
+            cameraMoving = false
+            if (paddingDirty) {
+                paddingDirty = false
+                applyPadding(pendingPadding)
+            }
             programmaticTarget = null
             programmaticZoom = null
             val pos = lm.cameraPosition.toShared(pendingPadding)
@@ -272,47 +292,62 @@ internal class AndroidLibreMapController(
     }
 
     override suspend fun moveTo(point: GeoPoint, zoom: Float) {
+        pendingFit = null
         val lm = libreMap ?: return
         programmaticTarget = point
         programmaticZoom = zoom.clampZoom()
+        val basePx = pendingPadding.toPaddingPx(applicationContext)
         lm.moveCamera(
             CameraUpdateFactory.newCameraPosition(
                 LibreCameraPosition.Builder()
                     .target(point.toLatLng())
                     .zoom(zoom.clampZoom().toDouble())
+                    .padding(basePx.left.toDouble(), basePx.top.toDouble(), basePx.right.toDouble(), basePx.bottom.toDouble())
                     .build()
             )
         )
     }
 
     override suspend fun animateTo(point: GeoPoint, zoom: Float, durationMs: Int) {
+        pendingFit = null
         programmaticTarget = point
         programmaticZoom = zoom.clampZoom()
         val lm = libreMap ?: return
+        val basePx = pendingPadding.toPaddingPx(applicationContext)
         val target = LibreCameraPosition.Builder()
             .target(point.toLatLng())
             .zoom(zoom.clampZoom().toDouble())
+            .padding(basePx.left.toDouble(), basePx.top.toDouble(), basePx.right.toDouble(), basePx.bottom.toDouble())
             .build()
         animateCamera(lm, CameraUpdateFactory.newCameraPosition(target), durationMs)
     }
 
     override suspend fun animateToWithBearing(point: GeoPoint, bearing: Float, zoom: Float, durationMs: Int) {
+        pendingFit = null
         val lm = libreMap ?: return
         programmaticTarget = point
         programmaticZoom = zoom.clampZoom()
+        val basePx = pendingPadding.toPaddingPx(applicationContext)
         val target = LibreCameraPosition.Builder()
             .target(point.toLatLng())
             .zoom(zoom.clampZoom().toDouble())
             .bearing(bearing.toDouble())
             .tilt(lm.cameraPosition.tilt)
+            .padding(basePx.left.toDouble(), basePx.top.toDouble(), basePx.right.toDouble(), basePx.bottom.toDouble())
             .build()
         animateCamera(lm, CameraUpdateFactory.newCameraPosition(target), durationMs)
     }
 
     override suspend fun fitBounds(points: List<GeoPoint>, animate: Boolean, padding: PaddingValues?) {
-        val lm = libreMap ?: return
+        pendingFit = null
         val valid = points.filterNot { it == GeoPoint.Zero }.distinctBy { it.lat to it.lng }
         if (valid.isEmpty()) return
+        val lm = libreMap
+        val view = mapView
+        if (lm == null || view == null || view.width == 0 || view.height == 0) {
+            pendingFit = PendingFit(points, animate, padding)
+            return
+        }
         if (valid.size == 1) {
             val single = valid.first()
             val z = lm.cameraPosition.zoom.toFloat().clampZoom()
@@ -322,30 +357,22 @@ internal class AndroidLibreMapController(
         programmaticTarget = null
         programmaticZoom = null
         val bounds = LatLngBounds.fromLatLngs(valid.map { it.toLatLng() })
-        val px = (padding ?: pendingPadding).toPaddingPx(applicationContext)
         val basePx = pendingPadding.toPaddingPx(applicationContext)
-        val baseMargin = (60 * applicationContext.resources.displayMetrics.density).toInt()
-        val view = mapView
-        val maxMargin = if (view != null && view.width > 0 && view.height > 0) {
-            minOf(view.width, view.height) / 2 - 1
-        } else Int.MAX_VALUE
-        val visualMarginPx = (maxOf(px.left, px.top, px.right, px.bottom) + baseMargin).coerceAtMost(maxMargin.coerceAtLeast(0))
-        val fitted = lm.getCameraForLatLngBounds(
-            bounds,
-            intArrayOf(
-                basePx.left + visualMarginPx,
-                basePx.top + visualMarginPx,
-                basePx.right + visualMarginPx,
-                basePx.bottom + visualMarginPx
-            ),
-            0.0,
-            0.0
-        ) ?: return
+        val marginPx = (padding ?: PaddingValues(MapConstants.DEFAULT_PADDING)).toPaddingPx(applicationContext)
+        val marginX = maxOf(marginPx.left, marginPx.right)
+        val marginY = maxOf(marginPx.top, marginPx.bottom)
+        val fitPadding = intArrayOf(basePx.left + marginX, basePx.top + marginY, basePx.right + marginX, basePx.bottom + marginY)
+        val fitted = lm.getCameraForLatLngBounds(bounds, fitPadding, 0.0, 0.0)
+        if (fitted == null) {
+            pendingFit = PendingFit(points, animate, padding)
+            return
+        }
         val target = LibreCameraPosition.Builder()
             .target(fitted.target)
-            .zoom(fitted.zoom)
+            .zoom(fitted.zoom.toFloat().clampZoom().toDouble())
             .bearing(0.0)
             .tilt(0.0)
+            .padding(fitPadding[0].toDouble(), fitPadding[1].toDouble(), fitPadding[2].toDouble(), fitPadding[3].toDouble())
             .build()
         val update = CameraUpdateFactory.newCameraPosition(target)
         if (animate) animateCamera(lm, update, MapController.ANIMATION_DURATION) else lm.moveCamera(update)
@@ -410,23 +437,6 @@ internal class AndroidLibreMapController(
         if (padding == pendingPadding && libreMap != null) return
         pendingPadding = padding
         applyPadding(padding)
-        replayLockedTarget()
-        val target = programmaticTarget ?: return
-        val lm = libreMap ?: return
-        queuedRecenter = target to (programmaticZoom ?: lm.cameraPosition.zoom.toFloat())
-        if (!_centerPin.value.isMoving) consumeQueuedRecenter()
-    }
-
-    private fun consumeQueuedRecenter(): Boolean {
-        val recenter = queuedRecenter ?: return false
-        queuedRecenter = null
-        val lm = libreMap ?: return false
-        val target = LibreCameraPosition.Builder()
-            .target(recenter.first.toLatLng())
-            .zoom(recenter.second.clampZoom().toDouble())
-            .build()
-        scope.launch { animateCamera(lm, CameraUpdateFactory.newCameraPosition(target), MapController.ANIMATION_DURATION) }
-        return true
     }
 
     override fun setInteractionEnabled(enabled: Boolean) {
@@ -627,6 +637,10 @@ internal class AndroidLibreMapController(
 
     private fun applyPadding(padding: PaddingValues) {
         val lm = libreMap ?: return
+        if (animationInFlight || cameraMoving) {
+            paddingDirty = true
+            return
+        }
         val px = padding.toPaddingPx(applicationContext)
         lm.moveCamera(
             CameraUpdateFactory.paddingTo(
@@ -787,12 +801,23 @@ internal class AndroidLibreMapController(
         update: org.maplibre.android.camera.CameraUpdate,
         durationMs: Int
     ) {
-        suspendCoroutine<Unit> { cont ->
-            val callback = object : MapLibreMap.CancelableCallback {
-                override fun onFinish() { cont.resume(Unit) }
-                override fun onCancel() { cont.resume(Unit) }
-            }
-            lm.easeCamera(update, durationMs, callback)
+        suspendCancellableCoroutine<Unit> { cont ->
+            val generation = ++animationGeneration
+            cont.invokeOnCancellation { lm.cancelTransitions() }
+            animationInFlight = true
+            lm.easeCamera(update, durationMs, object : MapLibreMap.CancelableCallback {
+                override fun onFinish() { onAnimationEnd(generation); if (cont.isActive) cont.resume(Unit) }
+                override fun onCancel() { onAnimationEnd(generation); if (cont.isActive) cont.resume(Unit) }
+            })
+        }
+    }
+
+    private fun onAnimationEnd(generation: Int) {
+        if (generation != animationGeneration) return
+        animationInFlight = false
+        if (paddingDirty) {
+            paddingDirty = false
+            applyPadding(pendingPadding)
         }
     }
 
@@ -862,4 +887,10 @@ internal class AndroidLibreMapController(
         const val USER_LOCATION_ICON_ID = "yalla-icon-user-location"
         const val BASE_METERS_PER_PIXEL = 156543.03392
     }
+
+    private data class PendingFit(
+        val points: List<GeoPoint>,
+        val animate: Boolean,
+        val padding: PaddingValues?
+    )
 }
