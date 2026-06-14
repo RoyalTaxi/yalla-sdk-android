@@ -253,7 +253,7 @@ internal class AndroidLibreMapController(
             false
         }
         lm.addOnCameraMoveListener {
-            val pos = lm.cameraPosition.toShared(pendingPadding)
+            val pos = lm.cameraPosition.toShared(pendingPadding) ?: return@addOnCameraMoveListener
             emitCamera(pos)
             _centerPin.value = _centerPin.value.copy(
                 point = pos.target,
@@ -268,12 +268,14 @@ internal class AndroidLibreMapController(
                 applyPadding(pendingPadding)
             }
             val pos = lm.cameraPosition.toShared(pendingPadding)
-            emitCamera(pos)
-            _centerPin.value = CenterPinState(
-                point = pos.target,
-                isMoving = false,
-                isByUser = userInitiatedMove
-            )
+            if (pos != null) {
+                emitCamera(pos)
+                _centerPin.value = CenterPinState(
+                    point = pos.target,
+                    isMoving = false,
+                    isByUser = userInitiatedMove
+                )
+            }
             userInitiatedMove = false
         }
     }
@@ -822,13 +824,18 @@ internal class AndroidLibreMapController(
         MapStyle.PlatformDefault -> null
     }
 
-    private fun LibreCameraPosition.toShared(padding: PaddingValues): CameraPosition = CameraPosition(
-        target = GeoPoint(target!!.latitude, target!!.longitude),
-        zoom = zoom.toFloat(),
-        bearing = bearing.toFloat(),
-        tilt = tilt.toFloat(),
-        padding = padding
-    )
+    // MapLibre's CameraPosition.target is @Nullable (absent during style load / before the
+    // first fix), so callers must skip a null camera rather than read it. See YLL-762.
+    private fun LibreCameraPosition.toShared(padding: PaddingValues): CameraPosition? {
+        val t = target ?: return null
+        return CameraPosition(
+            target = GeoPoint(t.latitude, t.longitude),
+            zoom = zoom.toFloat(),
+            bearing = bearing.toFloat(),
+            tilt = tilt.toFloat(),
+            padding = padding
+        )
+    }
 
     private fun uz.yalla.maps.api.model.Anchor.toLibreAnchor(): String = when {
         y >= 0.9f && x in 0.4f..0.6f -> "bottom"
