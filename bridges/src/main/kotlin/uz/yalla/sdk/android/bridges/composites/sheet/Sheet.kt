@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
+import uz.yalla.sdk.android.bridges.feedback.YallaSnackbarHost
 import uz.yalla.components.primitives.button.CloseButton
 import uz.yalla.design.theme.System as CommonSystem
 import uz.yalla.sdk.android.components.primitives.button.DragButton
@@ -194,6 +195,8 @@ internal fun Sheet(
                                 .onSizeChanged { footerHeight = with(density) { it.height.toDp() } }
                         )
                     }
+
+                    YallaSnackbarHost()
                 }
             }
         }
