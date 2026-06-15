@@ -41,19 +41,49 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import kotlin.math.abs
 import kotlinx.coroutines.delay
 import uz.yalla.sdk.android.design.theme.System
 import uz.yalla.sdk.android.design.theme.YallaTheme
 
+private val SnackbarPositionProvider = object : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize
+    ): IntOffset = IntOffset((windowSize.width - popupContentSize.width) / 2, 0)
+}
+
+@Composable
+fun YallaSnackbarHost(modifier: Modifier = Modifier) {
+    val items = SnackbarController.items
+    if (items.isNotEmpty()) {
+        Popup(
+            popupPositionProvider = SnackbarPositionProvider,
+            properties = PopupProperties(focusable = false, clippingEnabled = false)
+        ) {
+            SnackbarOverlay(items = items, modifier = modifier)
+        }
+    }
+}
+
 @Composable
 internal fun SnackbarOverlay(
-    items: SnapshotStateList<SnackbarItem>
+    items: SnapshotStateList<SnackbarItem>,
+    modifier: Modifier = Modifier
 ) {
     YallaTheme {
         Column(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
