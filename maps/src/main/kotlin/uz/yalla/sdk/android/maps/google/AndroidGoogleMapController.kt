@@ -290,6 +290,7 @@ internal class AndroidGoogleMapController(
         val marginPx = (padding ?: PaddingValues(MapConstants.DEFAULT_PADDING)).toPaddingPx(applicationContext)
         val margin = maxOf(marginPx.left, marginPx.top, marginPx.right, marginPx.bottom)
         val maxMargin = ((minOf(view.width - basePx.left - basePx.right, view.height - basePx.top - basePx.bottom) / 2) - 1).coerceAtLeast(0)
+        gm.setPadding(basePx.left, basePx.top, basePx.right, basePx.bottom)
         val update = CameraUpdateFactory.newLatLngBounds(bounds, margin.coerceAtMost(maxMargin))
         gm.setMaxZoomPreference(MapConstants.FIT_ZOOM_MAX.toFloat())
         try {

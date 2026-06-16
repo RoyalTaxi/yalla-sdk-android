@@ -157,10 +157,22 @@ internal fun Sheet(
 
                     content(
                         PaddingValues(
-                            top = dragHandleHeight + headerHeight,
+                            top = maxOf(dragHandleHeight, headerHeight),
                             bottom = footerHeight + insetBottom
                         )
                     )
+
+                    if (hasHeader) {
+                        SheetHeader(
+                            title = title,
+                            onClose = onClose,
+                            action = headerAction,
+                            elevated = headerElevated,
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .onSizeChanged { headerHeight = with(density) { it.height.toDp() } }
+                        )
+                    }
 
                     DragButton(
                         onClick = {
@@ -172,19 +184,6 @@ internal fun Sheet(
                             .align(Alignment.TopCenter)
                             .onSizeChanged { dragHandleHeight = with(density) { it.height.toDp() } }
                     )
-
-                    if (hasHeader) {
-                        SheetHeader(
-                            title = title,
-                            onClose = onClose,
-                            action = headerAction,
-                            elevated = headerElevated,
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .padding(top = dragHandleHeight)
-                                .onSizeChanged { headerHeight = with(density) { it.height.toDp() } }
-                        )
-                    }
 
                     if (footer != null) {
                         SheetFooter(
