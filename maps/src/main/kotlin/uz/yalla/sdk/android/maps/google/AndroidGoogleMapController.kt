@@ -628,7 +628,7 @@ internal class AndroidGoogleMapController(
         animationInFlight = false
         if (paddingDirty) {
             paddingDirty = false
-            applyPadding(pendingPadding)
+            mainHandler.post { applyPadding(pendingPadding) }
         }
     }
 
