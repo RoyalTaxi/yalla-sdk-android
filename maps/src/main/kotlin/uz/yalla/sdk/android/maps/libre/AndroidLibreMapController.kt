@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.View
 import android.view.animation.LinearInterpolator
 import androidx.compose.foundation.layout.PaddingValues
@@ -59,7 +60,7 @@ import uz.yalla.maps.api.model.MapRoute
 import uz.yalla.maps.api.model.MapStyle
 import uz.yalla.maps.api.model.RoutePattern
 import uz.yalla.maps.config.MapConstants
-import uz.yalla.maps.util.shortestHeadingPath
+import uz.yalla.maps.motion.DriverMotionModel
 import uz.yalla.sdk.android.maps.common.MarkerIconLoader
 import uz.yalla.sdk.android.maps.common.toPaddingPx
 
@@ -122,6 +123,7 @@ internal class AndroidLibreMapController(
     private val renderedSymbols = HashMap<String, LibreSymbol>()
 
     private val markerAnimators = HashMap<String, ValueAnimator>()
+    private val motionModels = HashMap<String, DriverMotionModel>()
     private val routeSources = HashMap<String, GeoJsonSource>()
     private val routeLayers = HashMap<String, LineLayer>()
     private val circleSources = HashMap<String, GeoJsonSource>()
@@ -190,6 +192,7 @@ internal class AndroidLibreMapController(
         symbolManager = null
         markerAnimators.values.forEach { it.cancel() }
         markerAnimators.clear()
+        motionModels.clear()
         renderedSymbols.clear()
         routeLayers.clear()
         routeSources.clear()
@@ -399,6 +402,7 @@ internal class AndroidLibreMapController(
                     if (mv != null) attachSymbolManager(mv, lm, style)
                     markerAnimators.values.forEach { it.cancel() }
                     markerAnimators.clear()
+                    motionModels.clear()
                     routeSources.clear()
                     routeLayers.clear()
                     circleSources.clear()
@@ -668,6 +672,7 @@ internal class AndroidLibreMapController(
         val toRemove = renderedSymbols.keys - incoming.keys
         toRemove.forEach { id ->
             markerAnimators.remove(id)?.cancel()
+            motionModels.remove(id)
             renderedSymbols.remove(id)?.let { sm.delete(it) }
             markerData.remove(id)
         }
@@ -693,6 +698,9 @@ internal class AndroidLibreMapController(
                     .withSymbolSortKey(marker.zIndex)
                 iconImageId?.let { options.withIconImage(it) }
                 sm.create(options)?.let { renderedSymbols[id] = it }
+                if (marker.flat) {
+                    motionModels.getOrPut(id) { DriverMotionModel() }.push(marker.point, marker.rotation, SystemClock.uptimeMillis())
+                }
             } else {
                 val moved = previous?.point != marker.point || previous?.rotation != marker.rotation
                 if (moved && marker.flat) {
@@ -712,22 +720,17 @@ internal class AndroidLibreMapController(
     }
 
     private fun animateSymbol(id: String, symbol: LibreSymbol, target: MapMarker) {
+        val model = motionModels.getOrPut(id) { DriverMotionModel() }
+        model.push(target.point, target.rotation, SystemClock.uptimeMillis())
         markerAnimators.remove(id)?.cancel()
-        val startPosition = symbol.latLng
-        val endPosition = target.point.toLatLng()
-        val startRotation = symbol.iconRotate
-        val endRotation = shortestHeadingPath(startRotation, target.rotation)
         val animator = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = MARKER_ANIMATION_MS
             interpolator = LinearInterpolator()
-            addUpdateListener { animation ->
+            addUpdateListener {
                 val sm = symbolManager ?: return@addUpdateListener
-                val fraction = animation.animatedValue as Float
-                symbol.latLng = LatLng(
-                    startPosition.latitude + (endPosition.latitude - startPosition.latitude) * fraction,
-                    startPosition.longitude + (endPosition.longitude - startPosition.longitude) * fraction
-                )
-                symbol.iconRotate = startRotation + (endRotation - startRotation) * fraction
+                val pose = model.sample(SystemClock.uptimeMillis())
+                symbol.latLng = pose.point.toLatLng()
+                symbol.iconRotate = pose.bearing
                 sm.update(symbol)
             }
         }
@@ -876,7 +879,7 @@ internal class AndroidLibreMapController(
     }
 
     private companion object {
-        const val MARKER_ANIMATION_MS = 1000L
+        const val MARKER_ANIMATION_MS = 10_000L
         const val USER_LOCATION_ACCURACY_METERS = 50.0
         const val USER_LOCATION_FILL_COLOR = 0x33562DF8
         const val USER_LOCATION_STROKE_COLOR = 0x66562DF8
