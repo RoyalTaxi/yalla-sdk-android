@@ -466,7 +466,7 @@ internal class AndroidGoogleMapController(
                 marker.icon?.let { MarkerIconLoader.loadGmsDescriptor(applicationContext, it)?.let(options::icon) }
                 gm.addMarker(options)?.let { renderedMarkers[id] = it }
                 if (marker.flat) {
-                    motionModels.getOrPut(id) { DriverMotionModel() }.push(marker.point, marker.rotation, SystemClock.uptimeMillis())
+                    motionModels.getOrPut(id) { DriverMotionModel() }.push(marker.point, marker.routeHeading, marker.rotation, SystemClock.uptimeMillis())
                 }
             } else {
                 val moved = previous?.point != marker.point || previous?.rotation != marker.rotation
@@ -491,7 +491,7 @@ internal class AndroidGoogleMapController(
 
     private fun animateMarker(id: String, gmsMarker: GmsMarker, target: MapMarker) {
         val model = motionModels.getOrPut(id) { DriverMotionModel() }
-        model.push(target.point, target.rotation, SystemClock.uptimeMillis())
+        model.push(target.point, target.routeHeading, target.rotation, SystemClock.uptimeMillis())
         markerAnimators.remove(id)?.cancel()
         val animator = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = MARKER_ANIMATION_MS
