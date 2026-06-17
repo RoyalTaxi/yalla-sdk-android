@@ -8,7 +8,7 @@ internal object SnackbarController {
     private var idCounter = 0L
 
     fun show(message: String, isError: Boolean) {
-        if (items.size >= 3) items.removeAt(0)
+        items.clear()
         items.add(SnackbarItem(id = ++idCounter, message = message, isError = isError))
     }
 
