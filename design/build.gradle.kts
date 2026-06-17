@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "uz.yalla.sdk.android"
-version = "0.2.4"
+version = "0.2.5"
 
 android {
     namespace = "uz.yalla.sdk.android.design"
