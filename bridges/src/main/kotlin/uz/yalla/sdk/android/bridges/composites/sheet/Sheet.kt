@@ -37,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
-import uz.yalla.sdk.android.bridges.feedback.YallaSnackbarHost
 import uz.yalla.components.primitives.button.CloseButton
 import uz.yalla.design.theme.System as CommonSystem
 import uz.yalla.sdk.android.components.primitives.button.DragButton
@@ -96,12 +95,16 @@ internal fun Sheet(
         }
     }
 
-    LaunchedEffect(sheetState, onFullyExpanded) {
-        if (onFullyExpanded == null) return@LaunchedEffect
+    // Capture the (possibly fresh-each-recomposition) callback by reference so the effect can key on
+    // sheetState alone. Keying on the lambda restarted the snapshot collector on every recomposition,
+    // and its first re-emission of (Expanded, Expanded) passed the filter — re-firing onFullyExpanded
+    // every recomposition once the sheet was already open.
+    val currentOnFullyExpanded = rememberUpdatedState(onFullyExpanded)
+    LaunchedEffect(sheetState) {
         snapshotFlow { sheetState.currentValue to sheetState.targetValue }
             .distinctUntilChanged()
             .filter { (current, target) -> current == SheetValue.Expanded && current == target }
-            .collect { onFullyExpanded() }
+            .collect { currentOnFullyExpanded.value?.invoke() }
     }
 
     val hasHeader = title != null || onClose != null || headerAction != null
@@ -194,8 +197,9 @@ internal fun Sheet(
                                 .onSizeChanged { footerHeight = with(density) { it.height.toDp() } }
                         )
                     }
-
-                    YallaSnackbarHost()
+                    // Intentionally no YallaSnackbarHost() here: the host is mounted once at the app
+                    // content root (see YallaSnackbarHost KDoc). Hosting it per-sheet swallowed toasts
+                    // fired with no sheet open and double-rendered them when sheets stacked.
                 }
             }
         }

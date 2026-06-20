@@ -7,6 +7,7 @@ import uz.yalla.telemetry.event.AnalyticsEvent
 import uz.yalla.telemetry.event.ParamValue
 import uz.yalla.telemetry.sink.TelemetrySink
 
+/** Android `TelemetrySink` that forwards analytics events and the active user id to Firebase Analytics. */
 class FirebaseAnalyticsSink(context: Context) : TelemetrySink {
     private val analytics = FirebaseAnalytics.getInstance(context.applicationContext)
 
