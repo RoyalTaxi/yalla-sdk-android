@@ -1,21 +1,16 @@
 package uz.yalla.sdk.android.maps.libre
 
-import android.animation.ValueAnimator
 import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.view.View
-import android.view.animation.LinearInterpolator
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.pow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -58,10 +53,10 @@ import uz.yalla.maps.api.model.MapEvent
 import uz.yalla.maps.api.model.MapMarker
 import uz.yalla.maps.api.model.MapRoute
 import uz.yalla.maps.api.model.MapStyle
-import uz.yalla.maps.api.model.RoutePattern
 import uz.yalla.maps.config.MapConstants
-import uz.yalla.maps.motion.DriverMotionModel
+import uz.yalla.sdk.android.maps.common.MapMath
 import uz.yalla.sdk.android.maps.common.MarkerIconLoader
+import uz.yalla.sdk.android.maps.common.MarkerMotionDriver
 import uz.yalla.sdk.android.maps.common.toPaddingPx
 
 internal class AndroidLibreMapController(
@@ -109,6 +104,7 @@ internal class AndroidLibreMapController(
     private var lockedTarget: GeoPoint? = null
     private var lockedZoom: Float? = null
     private var pendingFit: PendingFit? = null
+    private var fitRetries = 0
     private val mainHandler = Handler(Looper.getMainLooper())
     private var animationInFlight = false
     private var animationGeneration = 0
@@ -122,8 +118,13 @@ internal class AndroidLibreMapController(
 
     private val renderedSymbols = HashMap<String, LibreSymbol>()
 
-    private val markerAnimators = HashMap<String, ValueAnimator>()
-    private val motionModels = HashMap<String, DriverMotionModel>()
+    private val motionDriver = MarkerMotionDriver { id, point, bearing ->
+        val symbol = renderedSymbols[id] ?: return@MarkerMotionDriver
+        val sm = symbolManager ?: return@MarkerMotionDriver
+        symbol.latLng = point.toLatLng()
+        symbol.iconRotate = bearing
+        sm.update(symbol)
+    }
     private val routeSources = HashMap<String, GeoJsonSource>()
     private val routeLayers = HashMap<String, LineLayer>()
     private val circleSources = HashMap<String, GeoJsonSource>()
@@ -166,6 +167,20 @@ internal class AndroidLibreMapController(
         scope.launch { fitBounds(fit.points, fit.animate, fit.padding) }
     }
 
+    // getCameraForLatLngBounds returns null until the GL camera transform is ready, even after the
+    // view is measured and the style is loaded — and the onLayoutChange listener only re-fires on a
+    // size *change*, so a view that already has its final size would never retry and the fit would be
+    // dropped forever. Retry on the next frame instead (it lands once the projection is ready).
+    private fun scheduleFitRetry() {
+        val view = mapView ?: return
+        // Bound the reposts: a degenerate bounds can return null indefinitely; don't repost forever.
+        if (fitRetries >= MAX_FIT_RETRIES) return
+        fitRetries++
+        view.post {
+            if (!closed && pendingFit != null) flushPendingFit()
+        }
+    }
+
     override fun detach() {
         ensureMainThread()
         animationInFlight = false
@@ -190,9 +205,7 @@ internal class AndroidLibreMapController(
         userLocationCircleLayer = null
         userLocationSource = null
         symbolManager = null
-        markerAnimators.values.forEach { it.cancel() }
-        markerAnimators.clear()
-        motionModels.clear()
+        motionDriver.clear()
         renderedSymbols.clear()
         routeLayers.clear()
         routeSources.clear()
@@ -203,6 +216,7 @@ internal class AndroidLibreMapController(
         circleData.clear()
         uploadedIconKeys.clear()
         pendingFit = null
+        fitRetries = 0
         mapView = null
         libreMap = null
         libreStyle = null
@@ -218,6 +232,9 @@ internal class AndroidLibreMapController(
     }
 
     private fun onMapReady(view: MapView, lm: MapLibreMap) {
+        // getMapAsync is async: this can fire after detach()/close() (a stale view) — guard against
+        // rendering onto a view that is no longer attached.
+        if (closed || mapView !== view) return
         libreMap = lm
         lm.uiSettings.isAttributionEnabled = false
         lm.uiSettings.isLogoEnabled = false
@@ -229,6 +246,8 @@ internal class AndroidLibreMapController(
         applyInteractionEnabled()
         pendingStyle?.resolveUrl(pendingIsDark)?.let { styleUrl = it }
         lm.setStyle(Style.Builder().fromUri(styleUrl)) { style ->
+            // setStyle is also async — bail if the view was detached while the style loaded.
+            if (closed || mapView !== view) return@setStyle
             libreStyle = style
             applyPadding(pendingPadding)
             attachSymbolManager(view, lm, style)
@@ -360,8 +379,10 @@ internal class AndroidLibreMapController(
         val fitted = lm.getCameraForLatLngBounds(bounds, fitPadding, 0.0, 0.0)
         if (fitted == null) {
             pendingFit = PendingFit(points, animate, padding)
+            scheduleFitRetry()
             return
         }
+        fitRetries = 0
         val target = LibreCameraPosition.Builder()
             .target(fitted.target)
             .zoom(fitted.zoom.coerceAtMost(MapConstants.FIT_ZOOM_MAX).toFloat().clampZoom().toDouble())
@@ -400,9 +421,7 @@ internal class AndroidLibreMapController(
                     libreStyle = style
                     val mv = mapView
                     if (mv != null) attachSymbolManager(mv, lm, style)
-                    markerAnimators.values.forEach { it.cancel() }
-                    markerAnimators.clear()
-                    motionModels.clear()
+                    motionDriver.clear()
                     routeSources.clear()
                     routeLayers.clear()
                     circleSources.clear()
@@ -576,12 +595,12 @@ internal class AndroidLibreMapController(
     }
 
     private fun circleRadiusExpression(radiusMeters: Double, lat: Double): Expression {
-        val radiusAtZoomZero = (radiusMeters / (BASE_METERS_PER_PIXEL * cos(lat * PI / 180.0))).toFloat()
+        val radiusAtZoomZero = MapMath.circleRadiusPixelsAtZoomZero(radiusMeters, lat)
         return Expression.interpolate(
             Expression.exponential(2),
             Expression.zoom(),
             Expression.stop(0, radiusAtZoomZero),
-            Expression.stop(22, radiusAtZoomZero * 2f.pow(22))
+            Expression.stop(MapMath.CIRCLE_RADIUS_MAX_ZOOM, radiusAtZoomZero * MapMath.CIRCLE_RADIUS_SCALE)
         )
     }
 
@@ -669,10 +688,11 @@ internal class AndroidLibreMapController(
         val sm = symbolManager ?: return
         val style = libreMap?.style ?: return
         val incoming = markers.associateBy { it.id }
+        // Diff the same key set Google does (the rendered native handles), not markerData — a failed
+        // sm.create must not leak a markerData entry that strands the marker "in data, off the map".
         val toRemove = renderedSymbols.keys - incoming.keys
         toRemove.forEach { id ->
-            markerAnimators.remove(id)?.cancel()
-            motionModels.remove(id)
+            motionDriver.remove(id)
             renderedSymbols.remove(id)?.let { sm.delete(it) }
             markerData.remove(id)
         }
@@ -680,7 +700,7 @@ internal class AndroidLibreMapController(
             val previous = markerData[id]
             val existing = renderedSymbols[id]
             val iconImageId = marker.icon?.let { icon ->
-                val key = iconImageKey(icon)
+                val key = MapMath.iconImageKey(icon)
                 if (key !in uploadedIconKeys) {
                     MarkerIconLoader.loadBitmap(applicationContext, icon)?.let { bitmap ->
                         bitmap.density = applicationContext.resources.displayMetrics.densityDpi
@@ -694,48 +714,52 @@ internal class AndroidLibreMapController(
                 val options = SymbolOptions()
                     .withLatLng(marker.point.toLatLng())
                     .withIconRotate(marker.rotation)
-                    .withIconAnchor(marker.anchor.toLibreAnchor())
+                    .withIconAnchor(MapMath.toLibreAnchor(marker.anchor))
                     .withSymbolSortKey(marker.zIndex)
                 iconImageId?.let { options.withIconImage(it) }
-                sm.create(options)?.let { renderedSymbols[id] = it }
+                // Only record markerData once the native symbol exists; otherwise a failed create
+                // strands the marker and re-creates (and re-pushes motion) on every render.
+                val created = sm.create(options) ?: return@forEach
+                renderedSymbols[id] = created
                 if (marker.flat) {
-                    motionModels.getOrPut(id) { DriverMotionModel() }.push(marker.point, marker.routeHeading, marker.rotation, SystemClock.uptimeMillis())
+                    motionDriver.push(id, marker.point, marker.routeHeading, marker.rotation, SystemClock.uptimeMillis())
                 }
+                markerData[id] = marker
             } else {
                 val moved = previous?.point != marker.point || previous?.rotation != marker.rotation
                 if (moved && marker.flat) {
-                    animateSymbol(id, existing, marker)
+                    motionDriver.push(id, marker.point, marker.routeHeading, marker.rotation, SystemClock.uptimeMillis())
                 } else if (moved) {
-                    markerAnimators.remove(id)?.cancel()
+                    motionDriver.remove(id)
                     existing.latLng = marker.point.toLatLng()
                     existing.iconRotate = marker.rotation
                 }
-                if (previous?.anchor != marker.anchor) existing.iconAnchor = marker.anchor.toLibreAnchor()
+                if (previous?.anchor != marker.anchor) existing.iconAnchor = MapMath.toLibreAnchor(marker.anchor)
                 if (previous?.zIndex != marker.zIndex) existing.symbolSortKey = marker.zIndex
-                if (iconImageId != null && previous?.icon != marker.icon) existing.iconImage = iconImageId
+                if (previous?.icon != marker.icon) {
+                    // Set the new image, or clear it (empty string) when the icon went away — otherwise
+                    // a non-null -> null transition leaves the stale image on screen.
+                    existing.iconImage = iconImageId ?: ""
+                }
                 sm.update(existing)
+                markerData[id] = marker
             }
-            markerData[id] = marker
         }
+        evictUnusedIconImages(style, incoming.values)
     }
 
-    private fun animateSymbol(id: String, symbol: LibreSymbol, target: MapMarker) {
-        val model = motionModels.getOrPut(id) { DriverMotionModel() }
-        model.push(target.point, target.routeHeading, target.rotation, SystemClock.uptimeMillis())
-        markerAnimators.remove(id)?.cancel()
-        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = MARKER_ANIMATION_MS
-            interpolator = LinearInterpolator()
-            addUpdateListener {
-                val sm = symbolManager ?: return@addUpdateListener
-                val pose = model.sample(SystemClock.uptimeMillis())
-                symbol.latLng = pose.point.toLatLng()
-                symbol.iconRotate = pose.bearing
-                sm.update(symbol)
-            }
+    // Bound the GL style-image table: it grows one permanent entry per distinct pin label/color/bytes
+    // payload otherwise (style.addImage is never undone), unlike the LRU-capped bitmap cache. Drop any
+    // uploaded image no longer referenced by a live marker. The user-location icon is managed by
+    // renderUserLocation, so it is never evicted here.
+    private fun evictUnusedIconImages(style: Style, markers: Collection<MapMarker>) {
+        if (uploadedIconKeys.isEmpty()) return
+        val inUse = markers.mapNotNull { it.icon?.let(MapMath::iconImageKey) }.toHashSet()
+        val stale = uploadedIconKeys.filterNot { it == USER_LOCATION_ICON_ID || it in inUse }
+        stale.forEach { key ->
+            runCatching { style.removeImage(key) }
+            uploadedIconKeys.remove(key)
         }
-        markerAnimators[id] = animator
-        animator.start()
     }
 
     private fun renderRoutes(routes: List<MapRoute>) {
@@ -765,8 +789,11 @@ internal class AndroidLibreMapController(
                     PropertyFactory.lineColor(route.colorArgb),
                     PropertyFactory.lineWidth(route.widthDp)
                 )
-                route.pattern.toLibreDashArray(route.widthDp)?.let { layer.setProperties(PropertyFactory.lineDasharray(it)) }
-                val anchorLayerId = circleLayers.values.firstOrNull()?.id ?: symbolManager?.layerId
+                MapMath.toLibreDashArray(route.pattern, route.widthDp)?.let { layer.setProperties(PropertyFactory.lineDasharray(it)) }
+                // Insert the route below the marker (symbol) layer so it stays under markers + labels,
+                // matching iOS (LibreMapRenderer.swift:433). Do NOT anchor to a circle layer — that
+                // made the route/circle/marker stacking diverge from iOS when a circle was present.
+                val anchorLayerId = symbolManager?.layerId
                 if (anchorLayerId != null) {
                     runCatching { style.addLayerBelow(layer, anchorLayerId) }
                         .onFailure { style.addLayer(layer) }
@@ -784,7 +811,7 @@ internal class AndroidLibreMapController(
                     existingLayer.setProperties(PropertyFactory.lineWidth(route.widthDp))
                 }
                 if (previous?.pattern != route.pattern || previous?.widthDp != route.widthDp) {
-                    existingLayer.setProperties(PropertyFactory.lineDasharray(route.pattern.toLibreDashArray(route.widthDp)))
+                    existingLayer.setProperties(PropertyFactory.lineDasharray(MapMath.toLibreDashArray(route.pattern, route.widthDp)))
                 }
             }
             routeData[id] = route
@@ -840,30 +867,6 @@ internal class AndroidLibreMapController(
         )
     }
 
-    private fun uz.yalla.maps.api.model.Anchor.toLibreAnchor(): String = when {
-        y >= 0.9f && x in 0.4f..0.6f -> "bottom"
-        y <= 0.1f && x in 0.4f..0.6f -> "top"
-        x <= 0.1f -> "left"
-        x >= 0.9f -> "right"
-        else -> "center"
-    }
-
-    private fun RoutePattern.toLibreDashArray(widthDp: Float): Array<Float>? = when (this) {
-        RoutePattern.SOLID -> null
-        RoutePattern.DASHED -> arrayOf(30f / widthDp, 20f / widthDp)
-        RoutePattern.DOTTED -> arrayOf(0f, 20f / widthDp)
-    }
-
-    private fun iconImageKey(icon: uz.yalla.maps.api.model.MapMarkerIcon): String = when (icon) {
-        is uz.yalla.maps.api.model.MapMarkerIcon.Resource -> "yalla-icon-res-${icon.name}"
-        is uz.yalla.maps.api.model.MapMarkerIcon.Bytes ->
-            "yalla-icon-bytes-${icon.data.contentHashCode().toUInt().toString(16)}"
-        is uz.yalla.maps.api.model.MapMarkerIcon.Pin ->
-            "yalla-icon-pin-${icon.colorArgb.toUInt().toString(16)}-${icon.label.orEmpty().hashCode().toUInt().toString(16)}"
-        is uz.yalla.maps.api.model.MapMarkerIcon.Dot ->
-            "yalla-icon-dot-${icon.fillColorArgb.toUInt().toString(16)}-${icon.strokeColorArgb.toUInt().toString(16)}-${icon.diameterDp}-${icon.strokeWidthDp}"
-    }
-
     private fun cameraEpsilonEqual(a: CameraPosition, b: CameraPosition): Boolean {
         return kotlin.math.abs(a.target.lat - b.target.lat) < 1e-6 &&
             kotlin.math.abs(a.target.lng - b.target.lng) < 1e-6 &&
@@ -879,7 +882,7 @@ internal class AndroidLibreMapController(
     }
 
     private companion object {
-        const val MARKER_ANIMATION_MS = 10_000L
+        const val MAX_FIT_RETRIES = 10
         const val USER_LOCATION_ACCURACY_METERS = 50.0
         const val USER_LOCATION_FILL_COLOR = 0x33562DF8
         const val USER_LOCATION_STROKE_COLOR = 0x66562DF8
@@ -887,7 +890,6 @@ internal class AndroidLibreMapController(
         const val USER_LOCATION_CIRCLE_LAYER_ID = "yalla-user-location-circle"
         const val USER_LOCATION_DOT_LAYER_ID = "yalla-user-location-dot"
         const val USER_LOCATION_ICON_ID = "yalla-icon-user-location"
-        const val BASE_METERS_PER_PIXEL = 156543.03392
     }
 
     private data class PendingFit(

@@ -26,31 +26,36 @@ internal object MarkerIconLoader {
     private val userLocationGradientStart = 0xFF3400FF.toInt()
     private val userLocationGradientEnd = 0xFF886BFF.toInt()
 
-    private val bitmapCache = LruCache<MapMarkerIcon, Bitmap>(MAX_BITMAP_ENTRIES)
+    // Keyed on the stable iconImageKey string, not on MapMarkerIcon: MapMarkerIcon.Bytes.hashCode()
+    // re-hashes the whole ByteArray on every cache get/put, which is per-frame work for a glide loop
+    // feeding the same Bytes car icon. The string key is computed once per call and cheap to hash.
+    private val bitmapCache = LruCache<String, Bitmap>(MAX_BITMAP_ENTRIES)
 
-    private val descriptorCache = LruCache<MapMarkerIcon, BitmapDescriptor>(MAX_BITMAP_ENTRIES)
+    private val descriptorCache = LruCache<String, BitmapDescriptor>(MAX_BITMAP_ENTRIES)
 
     private var userLocationBitmap: Bitmap? = null
 
     private var userLocationDescriptor: BitmapDescriptor? = null
 
     fun loadBitmap(context: Context, icon: MapMarkerIcon): Bitmap? {
-        bitmapCache.get(icon)?.let { return it }
+        val key = MapMath.iconImageKey(icon)
+        bitmapCache.get(key)?.let { return it }
         val bitmap = when (icon) {
             is MapMarkerIcon.Resource -> resourceBitmap(context, icon.name)
             is MapMarkerIcon.Bytes -> BitmapFactory.decodeByteArray(icon.data, 0, icon.data.size)
             is MapMarkerIcon.Pin -> pinBitmap(context, icon)
             is MapMarkerIcon.Dot -> dotBitmap(context, icon)
         } ?: return null
-        bitmapCache.put(icon, bitmap)
+        bitmapCache.put(key, bitmap)
         return bitmap
     }
 
     fun loadGmsDescriptor(context: Context, icon: MapMarkerIcon): BitmapDescriptor? {
-        descriptorCache.get(icon)?.let { return it }
+        val key = MapMath.iconImageKey(icon)
+        descriptorCache.get(key)?.let { return it }
         val bitmap = loadBitmap(context, icon) ?: return null
         val descriptor = BitmapDescriptorFactory.fromBitmap(bitmap)
-        descriptorCache.put(icon, descriptor)
+        descriptorCache.put(key, descriptor)
         return descriptor
     }
 

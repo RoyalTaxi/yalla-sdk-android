@@ -47,6 +47,8 @@ dependencies {
     implementation(libs.maplibre.android.plugin.annotation)
 
     implementation(libs.kotlinx.coroutines.core)
+
+    testImplementation(libs.kotlin.test)
 }
 
 afterEvaluate {

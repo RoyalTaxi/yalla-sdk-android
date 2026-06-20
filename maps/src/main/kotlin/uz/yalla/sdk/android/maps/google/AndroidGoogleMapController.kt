@@ -1,6 +1,5 @@
 package uz.yalla.sdk.android.maps.google
 
-import android.animation.ValueAnimator
 import android.content.Context
 import android.os.Bundle
 import android.os.Handler
@@ -30,8 +29,6 @@ import com.google.android.gms.maps.model.PatternItem
 import com.google.android.gms.maps.model.Polyline as GmsPolyline
 import com.google.android.gms.maps.model.PolylineOptions
 import com.google.android.gms.maps.model.RoundCap
-import android.view.animation.LinearInterpolator
-import uz.yalla.maps.motion.DriverMotionModel
 import kotlin.coroutines.resume
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -56,10 +53,11 @@ import uz.yalla.maps.api.model.MapRoute
 import uz.yalla.maps.api.model.MapStyle
 import uz.yalla.maps.api.model.RoutePattern
 import uz.yalla.maps.config.MapConstants
+import uz.yalla.sdk.android.maps.common.MapMath
 import uz.yalla.sdk.android.maps.common.MarkerIconLoader
+import uz.yalla.sdk.android.maps.common.MarkerMotionDriver
 import uz.yalla.sdk.android.maps.common.toPaddingPx
 
-private const val MARKER_ANIMATION_MS = 10_000L
 private const val USER_LOCATION_ACCURACY_METERS = 50.0
 private const val USER_LOCATION_FILL_COLOR = 0x33562DF8
 private const val USER_LOCATION_STROKE_COLOR = 0x66562DF8
@@ -111,8 +109,12 @@ internal class AndroidGoogleMapController(
 
     private val renderedMarkers = HashMap<String, GmsMarker>()
 
-    private val markerAnimators = HashMap<String, ValueAnimator>()
-    private val motionModels = HashMap<String, DriverMotionModel>()
+    private val motionDriver = MarkerMotionDriver { id, point, bearing ->
+        renderedMarkers[id]?.let { marker ->
+            marker.position = point.toLatLng()
+            marker.rotation = bearing
+        }
+    }
     private val renderedRoutes = HashMap<String, GmsPolyline>()
     private val renderedCircles = HashMap<String, GmsCircle>()
     private val markerData = HashMap<String, MapMarker>()
@@ -141,7 +143,7 @@ internal class AndroidGoogleMapController(
         view.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
             if (v.width > 0 && v.height > 0 && _isReady.value) flushPendingFit()
         }
-        view.getMapAsync { gm -> onMapReady(gm) }
+        view.getMapAsync { gm -> onMapReady(view, gm) }
         return view
     }
 
@@ -159,9 +161,7 @@ internal class AndroidGoogleMapController(
             mv.onStop()
             mv.onDestroy()
         }
-        markerAnimators.values.forEach { it.cancel() }
-        markerAnimators.clear()
-        motionModels.clear()
+        motionDriver.clear()
         renderedMarkers.values.forEach { it.remove() }
         renderedRoutes.values.forEach { it.remove() }
         renderedCircles.values.forEach { it.remove() }
@@ -189,7 +189,10 @@ internal class AndroidGoogleMapController(
         attachedLifecycle = null
     }
 
-    private fun onMapReady(gm: GoogleMap) {
+    private fun onMapReady(view: MapView, gm: GoogleMap) {
+        // getMapAsync is async: this can fire after detach()/close() (a stale view) — guard against
+        // flipping _isReady and rendering onto a view that is no longer attached.
+        if (closed || mapView !== view) return
         googleMap = gm
         gm.uiSettings.isCompassEnabled = false
         gm.uiSettings.isMapToolbarEnabled = false
@@ -292,7 +295,7 @@ internal class AndroidGoogleMapController(
         val basePx = pendingPadding.toPaddingPx(applicationContext)
         val marginPx = (padding ?: PaddingValues(MapConstants.DEFAULT_PADDING)).toPaddingPx(applicationContext)
         val margin = maxOf(marginPx.left, marginPx.top, marginPx.right, marginPx.bottom)
-        val maxMargin = ((minOf(view.width - basePx.left - basePx.right, view.height - basePx.top - basePx.bottom) / 2) - 1).coerceAtLeast(0)
+        val maxMargin = MapMath.fitMarginMaxPx(view.width, view.height, basePx)
         gm.setPadding(basePx.left, basePx.top, basePx.right, basePx.bottom)
         val update = CameraUpdateFactory.newLatLngBounds(bounds, margin.coerceAtMost(maxMargin))
         gm.setMaxZoomPreference(MapConstants.FIT_ZOOM_MAX.toFloat())
@@ -329,7 +332,10 @@ internal class AndroidGoogleMapController(
                 val json = if (isDark) style.darkJson else style.lightJson
                 gm.setMapStyle(com.google.android.gms.maps.model.MapStyleOptions(json))
             }
-            else -> Unit
+            // Google Maps cannot load a MapLibre/Carto vector style URL; it keeps its own basemap.
+            // This is the contract (MapCapabilities.GOOGLE.supportsCustomStyles = false): a MapStyle.Url
+            // is intentionally ignored here. Only InlineJson (a Google style JSON) is applied.
+            is MapStyle.Url, MapStyle.PlatformDefault -> Unit
         }
     }
 
@@ -446,8 +452,7 @@ internal class AndroidGoogleMapController(
         val incoming = markers.associateBy { it.id }
         val toRemove = renderedMarkers.keys - incoming.keys
         toRemove.forEach { id ->
-            markerAnimators.remove(id)?.cancel()
-            motionModels.remove(id)
+            motionDriver.remove(id)
             renderedMarkers.remove(id)?.remove()
             markerData.remove(id)
         }
@@ -464,16 +469,20 @@ internal class AndroidGoogleMapController(
                     .zIndex(marker.zIndex)
                     .title(marker.contentDescription)
                 marker.icon?.let { MarkerIconLoader.loadGmsDescriptor(applicationContext, it)?.let(options::icon) }
-                gm.addMarker(options)?.let { renderedMarkers[id] = it }
+                // Only record markerData once the native handle exists; otherwise a failed addMarker
+                // leaves "exists in data, missing on map" and re-creates (and re-pushes motion) forever.
+                val created = gm.addMarker(options) ?: return@forEach
+                renderedMarkers[id] = created
                 if (marker.flat) {
-                    motionModels.getOrPut(id) { DriverMotionModel() }.push(marker.point, marker.routeHeading, marker.rotation, SystemClock.uptimeMillis())
+                    motionDriver.push(id, marker.point, marker.routeHeading, marker.rotation, SystemClock.uptimeMillis())
                 }
+                markerData[id] = marker
             } else {
                 val moved = previous?.point != marker.point || previous?.rotation != marker.rotation
                 if (moved && marker.flat) {
-                    animateMarker(id, existing, marker)
+                    motionDriver.push(id, marker.point, marker.routeHeading, marker.rotation, SystemClock.uptimeMillis())
                 } else if (moved) {
-                    markerAnimators.remove(id)?.cancel()
+                    motionDriver.remove(id)
                     existing.position = marker.point.toLatLng()
                     existing.rotation = marker.rotation
                 }
@@ -481,29 +490,15 @@ internal class AndroidGoogleMapController(
                 if (previous?.anchor != marker.anchor) existing.setAnchor(marker.anchor.x, marker.anchor.y)
                 if (previous?.zIndex != marker.zIndex) existing.zIndex = marker.zIndex
                 if (previous?.icon != marker.icon) {
-                    marker.icon?.let { MarkerIconLoader.loadGmsDescriptor(applicationContext, it)?.let(existing::setIcon) }
+                    val descriptor = marker.icon?.let { MarkerIconLoader.loadGmsDescriptor(applicationContext, it) }
+                    // Clearing or replacing the icon: fall back to the default marker when null so a
+                    // cleared icon doesn't leave the stale bitmap on screen.
+                    existing.setIcon(descriptor)
                 }
                 if (previous?.contentDescription != marker.contentDescription) existing.title = marker.contentDescription
-            }
-            markerData[id] = marker
-        }
-    }
-
-    private fun animateMarker(id: String, gmsMarker: GmsMarker, target: MapMarker) {
-        val model = motionModels.getOrPut(id) { DriverMotionModel() }
-        model.push(target.point, target.routeHeading, target.rotation, SystemClock.uptimeMillis())
-        markerAnimators.remove(id)?.cancel()
-        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = MARKER_ANIMATION_MS
-            interpolator = LinearInterpolator()
-            addUpdateListener {
-                val pose = model.sample(SystemClock.uptimeMillis())
-                gmsMarker.position = pose.point.toLatLng()
-                gmsMarker.rotation = pose.bearing
+                markerData[id] = marker
             }
         }
-        markerAnimators[id] = animator
-        animator.start()
     }
 
     private fun renderRoutes(routes: List<MapRoute>) {
