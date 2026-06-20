@@ -333,8 +333,8 @@ internal class AndroidGoogleMapController(
                 gm.setMapStyle(com.google.android.gms.maps.model.MapStyleOptions(json))
             }
             // Google Maps cannot load a MapLibre/Carto vector style URL; it keeps its own basemap.
-            // This is the contract (MapCapabilities.GOOGLE.supportsCustomStyles = false): a MapStyle.Url
-            // is intentionally ignored here. Only InlineJson (a Google style JSON) is applied.
+            // This is the contract: a MapStyle.Url is intentionally ignored here (Google does not
+            // support custom vector styles). Only InlineJson (a Google style JSON) is applied.
             is MapStyle.Url, MapStyle.PlatformDefault -> Unit
         }
     }
