@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import uz.yalla.components.composites.item.ActionableItem
 import uz.yalla.components.composites.item.ActionableItemDefaults
 import uz.yalla.components.composites.item.ActionableItemModel
+import uz.yalla.components.resource.ComponentImage
 import uz.yalla.components.resource.asImageVector
 import uz.yalla.sdk.android.bridges.feedback.Haptics
 
@@ -53,8 +54,8 @@ internal fun ActionSheet(
             items(items, key = { it.id }) { item ->
                 ActionableItem(
                     text = item.text,
-                    painter = item.icon.asImageVector()?.let { rememberVectorPainter(it) },
-                    trailingPainter = item.trailingIcon?.asImageVector()?.let { rememberVectorPainter(it) },
+                    painter = ComponentImage.from(item.icon)?.asImageVector()?.let { rememberVectorPainter(it) },
+                    trailingPainter = ComponentImage.from(item.trailingIcon)?.asImageVector()?.let { rememberVectorPainter(it) },
                     onClick = {
                         if (item.isDestructive) Haptics.warning(view) else Haptics.impact(view)
                         onAction(item.id)

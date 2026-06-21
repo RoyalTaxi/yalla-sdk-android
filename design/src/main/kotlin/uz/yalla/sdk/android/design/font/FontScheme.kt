@@ -20,12 +20,12 @@ data class FontScheme(
     @Immutable
     data class Body(
         val caption: TextStyle,
-        val large: Weighty,
-        val base: Weighty,
-        val small: Weighty
+        val large: Weights,
+        val base: Weights,
+        val small: Weights
     ) {
         @Immutable
-        data class Weighty(
+        data class Weights(
             val regular: TextStyle,
             val medium: TextStyle,
             val bold: TextStyle

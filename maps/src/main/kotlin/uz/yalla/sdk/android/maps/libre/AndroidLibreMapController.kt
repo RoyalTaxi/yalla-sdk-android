@@ -617,16 +617,6 @@ internal class AndroidLibreMapController(
         lockedZoom = null
     }
 
-    override fun snapshotScene(): MapController.SceneSnapshot = MapController.SceneSnapshot(
-        cameraPosition = _cameraPosition.value,
-        markers = pendingMarkers,
-        routes = pendingRoutes,
-        circles = pendingCircles,
-        padding = pendingPadding,
-        lockedTarget = lockedTarget,
-        lockedZoom = lockedZoom
-    )
-
     override fun close() {
         ensureMainThread()
         if (closed) return

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import uz.yalla.components.composites.item.SelectableItem
 import uz.yalla.components.composites.item.SelectableItemDefaults
 import uz.yalla.components.composites.item.SelectableItemModel
+import uz.yalla.components.resource.ComponentImage
 import uz.yalla.components.resource.asImageVector
 import uz.yalla.sdk.android.bridges.feedback.Haptics
 import uz.yalla.sdk.android.design.theme.System
@@ -57,7 +58,7 @@ internal fun SelectionSheet(
                 SelectableItem(
                     text = item.text,
                     selected = item.id == selectedId,
-                    leadingPainter = item.icon?.asImageVector()?.let { rememberVectorPainter(it) },
+                    leadingPainter = ComponentImage.from(item.icon)?.asImageVector()?.let { rememberVectorPainter(it) },
                     onClick = {
                         Haptics.selection(view)
                         onSelect(item.id)

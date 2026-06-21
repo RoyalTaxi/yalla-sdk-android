@@ -26,19 +26,19 @@ fun rememberFontScheme(): FontScheme {
             FontScheme.Body(
                 caption = TextStyle(fontSize = 13.sp, lineHeight = 15.6.sp, fontFamily = mediumFont),
                 large =
-                    FontScheme.Body.Weighty(
+                    FontScheme.Body.Weights(
                         regular = TextStyle(fontSize = 18.sp, lineHeight = 21.6.sp, fontFamily = normalFont),
                         medium = TextStyle(fontSize = 18.sp, lineHeight = 21.6.sp, fontFamily = mediumFont),
                         bold = TextStyle(fontSize = 18.sp, lineHeight = 21.6.sp, fontFamily = boldFont)
                     ),
                 base =
-                    FontScheme.Body.Weighty(
+                    FontScheme.Body.Weights(
                         regular = TextStyle(fontSize = 16.sp, lineHeight = 20.8.sp, fontFamily = normalFont),
                         medium = TextStyle(fontSize = 16.sp, lineHeight = 20.8.sp, fontFamily = mediumFont),
                         bold = TextStyle(fontSize = 16.sp, lineHeight = 20.8.sp, fontFamily = boldFont)
                     ),
                 small =
-                    FontScheme.Body.Weighty(
+                    FontScheme.Body.Weights(
                         regular = TextStyle(fontSize = 14.sp, lineHeight = 15.4.sp, fontFamily = normalFont),
                         medium = TextStyle(fontSize = 14.sp, lineHeight = 15.4.sp, fontFamily = mediumFont),
                         bold = TextStyle(fontSize = 14.sp, lineHeight = 15.4.sp, fontFamily = boldFont)

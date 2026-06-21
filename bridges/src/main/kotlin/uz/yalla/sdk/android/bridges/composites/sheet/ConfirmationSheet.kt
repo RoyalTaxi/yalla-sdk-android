@@ -17,7 +17,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import uz.yalla.components.primitives.button.PrimaryButton
 import uz.yalla.design.image.ThemedImage
-import uz.yalla.design.image.themedPainter
+import uz.yalla.design.image.rememberThemedPainter
 import uz.yalla.sdk.android.bridges.feedback.Haptics
 import uz.yalla.sdk.android.design.theme.System
 
@@ -72,7 +72,7 @@ internal fun ConfirmationSheet(
             Spacer(Modifier.height(ContentTopSpacing))
 
             Image(
-                painter = themedPainter(image),
+                painter = rememberThemedPainter(image),
                 contentDescription = null,
                 contentScale = ContentScale.Inside,
                 modifier = Modifier
