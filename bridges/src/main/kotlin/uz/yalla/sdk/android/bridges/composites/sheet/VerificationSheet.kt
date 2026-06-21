@@ -13,11 +13,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import uz.yalla.components.primitives.button.GhostButton
 import uz.yalla.components.primitives.button.PrimaryButton
 import uz.yalla.components.primitives.field.PinField
+import uz.yalla.sdk.android.bridges.feedback.Haptics
 import uz.yalla.sdk.android.design.theme.System
 
 private const val AutoFocusDelayMillis = 250L
@@ -44,11 +46,19 @@ internal fun VerificationSheet(
     dismissEnabled: Boolean
 ) {
     val focusRequester = remember { FocusRequester() }
+    val view = LocalView.current
     val complete = code.length == codeLength
 
     LaunchedEffect(Unit) {
         delay(AutoFocusDelayMillis)
         runCatching { focusRequester.requestFocus() }
+    }
+
+    // Fire the error haptic only on the rising edge of isError, mirroring iOS's
+    // `if !wasError && isError { Haptics.error() }`, so a persistent error state doesn't buzz on
+    // every recomposition.
+    LaunchedEffect(isError) {
+        if (isError) Haptics.error(view)
     }
 
     Sheet(
@@ -99,7 +109,10 @@ internal fun VerificationSheet(
                 value = code,
                 onValueChange = { new ->
                     onCodeChange(new)
-                    if (new.length == codeLength) onCodeComplete(new)
+                    if (new.length == codeLength) {
+                        Haptics.success(view)
+                        onCodeComplete(new)
+                    }
                 },
                 length = codeLength,
                 error = isError,

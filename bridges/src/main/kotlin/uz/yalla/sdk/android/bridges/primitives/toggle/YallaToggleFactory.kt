@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.Color
 import uz.yalla.components.config.primitives.ToggleFactory
 import uz.yalla.sdk.android.components.primitives.toggle.Toggle
 
+/** Android implementation of the common `ToggleFactory`, delegating to the design `Toggle`. */
 class YallaToggleFactory : ToggleFactory {
     @Composable
     override fun Content(

@@ -12,11 +12,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import uz.yalla.components.composites.item.ActionableItem
 import uz.yalla.components.composites.item.ActionableItemDefaults
 import uz.yalla.components.composites.item.ActionableItemModel
+import uz.yalla.components.resource.ComponentImage
 import uz.yalla.components.resource.asImageVector
+import uz.yalla.sdk.android.bridges.feedback.Haptics
 
 @Composable
 internal fun ActionSheet(
@@ -28,6 +31,7 @@ internal fun ActionSheet(
 ) {
     val listState = rememberLazyListState()
     val headerElevated by remember { derivedStateOf { listState.canScrollBackward } }
+    val view = LocalView.current
 
     Sheet(
         isVisible = isVisible,
@@ -50,9 +54,12 @@ internal fun ActionSheet(
             items(items, key = { it.id }) { item ->
                 ActionableItem(
                     text = item.text,
-                    painter = item.icon.asImageVector()?.let { rememberVectorPainter(it) },
-                    trailingPainter = item.trailingIcon?.asImageVector()?.let { rememberVectorPainter(it) },
-                    onClick = { onAction(item.id) },
+                    painter = ComponentImage.from(item.icon)?.asImageVector()?.let { rememberVectorPainter(it) },
+                    trailingPainter = ComponentImage.from(item.trailingIcon)?.asImageVector()?.let { rememberVectorPainter(it) },
+                    onClick = {
+                        if (item.isDestructive) Haptics.warning(view) else Haptics.impact(view)
+                        onAction(item.id)
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ActionableItemDefaults.colorsFor(item)
                 )

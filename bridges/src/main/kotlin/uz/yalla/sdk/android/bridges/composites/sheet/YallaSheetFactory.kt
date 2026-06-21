@@ -9,6 +9,11 @@ import uz.yalla.components.composites.item.SelectableItemModel
 import uz.yalla.components.config.composites.SheetFactory
 import uz.yalla.design.image.ThemedImage
 
+/**
+ * Android implementation of the common `SheetFactory`. Each `*Content` method renders one of the
+ * native bottom-sheet variants (shell, content, confirmation, selection, action, date picker,
+ * verification) backed by Material 3 `ModalBottomSheet`.
+ */
 class YallaSheetFactory : SheetFactory {
     @Composable
     override fun ShellContent(

@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.Color
 import uz.yalla.components.config.primitives.LoadingIndicatorFactory
 import uz.yalla.sdk.android.components.primitives.indicator.LoadingIndicator
 
+/** Android implementation of the common `LoadingIndicatorFactory`, delegating to the design `LoadingIndicator`. */
 class YallaLoadingIndicatorFactory : LoadingIndicatorFactory {
     @Composable
     override fun Content(

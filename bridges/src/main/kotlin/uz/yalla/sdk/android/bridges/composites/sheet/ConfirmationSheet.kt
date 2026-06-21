@@ -12,11 +12,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import uz.yalla.components.primitives.button.PrimaryButton
 import uz.yalla.design.image.ThemedImage
-import uz.yalla.design.image.themedPainter
+import uz.yalla.design.image.rememberThemedPainter
+import uz.yalla.sdk.android.bridges.feedback.Haptics
 import uz.yalla.sdk.android.design.theme.System
 
 private val ContentHorizontalPadding = 36.dp
@@ -37,6 +39,7 @@ internal fun ConfirmationSheet(
     dismissEnabled: Boolean,
     header: String? = null
 ) {
+    val view = LocalView.current
     Sheet(
         isVisible = isVisible,
         onDismissRequest = onDismissRequest,
@@ -46,7 +49,10 @@ internal fun ConfirmationSheet(
         onClose = if (dismissEnabled) onDismissRequest else null,
         footer = {
             PrimaryButton(
-                onClick = onAction,
+                onClick = {
+                    Haptics.impact(view)
+                    onAction()
+                },
                 modifier = Modifier.fillMaxWidth()
             ) { _, _, _ ->
                 Text(actionText)
@@ -66,7 +72,7 @@ internal fun ConfirmationSheet(
             Spacer(Modifier.height(ContentTopSpacing))
 
             Image(
-                painter = themedPainter(image),
+                painter = rememberThemedPainter(image),
                 contentDescription = null,
                 contentScale = ContentScale.Inside,
                 modifier = Modifier
