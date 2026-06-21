@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "uz.yalla.sdk.android"
-version = "0.2.5"
+version = "0.2.6"
 
 android {
     namespace = "uz.yalla.sdk.android.maps"
