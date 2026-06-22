@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "uz.yalla.sdk.android"
-version = "0.2.5"
+version = "0.2.7"
 
 android {
     namespace = "uz.yalla.sdk.android.maps"
@@ -47,6 +47,8 @@ dependencies {
     implementation(libs.maplibre.android.plugin.annotation)
 
     implementation(libs.kotlinx.coroutines.core)
+
+    testImplementation(libs.kotlin.test)
 }
 
 afterEvaluate {

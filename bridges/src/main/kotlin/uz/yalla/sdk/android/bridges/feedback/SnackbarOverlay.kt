@@ -40,6 +40,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -53,6 +57,9 @@ import kotlin.math.abs
 import kotlinx.coroutines.delay
 import uz.yalla.sdk.android.design.theme.System
 import uz.yalla.sdk.android.design.theme.YallaTheme
+
+private val SwipeVelocityThreshold = 500.dp
+private const val SwipeDismissFraction = 0.4f
 
 private val SnackbarPositionProvider = object : PopupPositionProvider {
     override fun calculatePosition(
@@ -108,11 +115,13 @@ private fun SnackbarItemRow(
     onDismiss: () -> Unit
 ) {
     val density = LocalDensity.current
+    val view = LocalView.current
     var offsetX by remember { mutableFloatStateOf(0f) }
     var itemWidthPx by remember { mutableFloatStateOf(1f) }
     val visibleState = remember { MutableTransitionState(false).apply { targetState = true } }
 
     LaunchedEffect(item.id) {
+        if (item.isError) Haptics.error(view) else Haptics.success(view)
         delay(if (item.isError) 5_000L else 3_000L)
         visibleState.targetState = false
     }
@@ -137,16 +146,15 @@ private fun SnackbarItemRow(
             modifier = Modifier
                 .widthIn(max = 600.dp)
                 .fillMaxWidth()
+                .semantics { liveRegion = LiveRegionMode.Polite }
                 .onSizeChanged { itemWidthPx = it.width.toFloat() }
                 .graphicsLayer { translationX = offsetX }
                 .draggable(
                     orientation = Orientation.Horizontal,
                     state = rememberDraggableState { delta -> offsetX += delta },
                     onDragStopped = { velocity ->
-                        val threshold = itemWidthPx * 0.4f
-                        val velocityThreshold = with(density) { 500.dp.toPx() }
-                        val shouldDismiss = abs(offsetX) > threshold || abs(velocity) > velocityThreshold
-                        if (shouldDismiss) {
+                        val velocityThreshold = with(density) { SwipeVelocityThreshold.toPx() }
+                        if (shouldDismissOnSwipe(offsetX, itemWidthPx, velocity, velocityThreshold)) {
                             requestDismiss()
                         } else {
                             offsetX = 0f
@@ -156,7 +164,7 @@ private fun SnackbarItemRow(
                 .clip(RoundedCornerShape(12.dp))
                 .background(
                     if (item.isError) System.color.border.error
-                    else System.color.button.active
+                    else System.color.background.brand
                 )
                 .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -172,11 +180,21 @@ private fun SnackbarItemRow(
             IconButton(onClick = requestDismiss) {
                 Icon(
                     imageVector = Icons.Filled.Close,
-                    contentDescription = null,
+                    contentDescription = "Dismiss",
                     tint = System.color.icon.white,
                     modifier = Modifier.size(20.dp)
                 )
             }
         }
     }
+}
+
+internal fun shouldDismissOnSwipe(
+    offsetX: Float,
+    itemWidthPx: Float,
+    velocity: Float,
+    velocityThresholdPx: Float
+): Boolean {
+    val distanceThreshold = itemWidthPx * SwipeDismissFraction
+    return abs(offsetX) > distanceThreshold || abs(velocity) > velocityThresholdPx
 }

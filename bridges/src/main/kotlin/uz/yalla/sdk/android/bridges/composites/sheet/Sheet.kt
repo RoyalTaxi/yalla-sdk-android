@@ -37,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
-import uz.yalla.sdk.android.bridges.feedback.YallaSnackbarHost
 import uz.yalla.components.primitives.button.CloseButton
 import uz.yalla.design.theme.System as CommonSystem
 import uz.yalla.sdk.android.components.primitives.button.DragButton
@@ -96,12 +95,12 @@ internal fun Sheet(
         }
     }
 
-    LaunchedEffect(sheetState, onFullyExpanded) {
-        if (onFullyExpanded == null) return@LaunchedEffect
+    val currentOnFullyExpanded = rememberUpdatedState(onFullyExpanded)
+    LaunchedEffect(sheetState) {
         snapshotFlow { sheetState.currentValue to sheetState.targetValue }
             .distinctUntilChanged()
             .filter { (current, target) -> current == SheetValue.Expanded && current == target }
-            .collect { onFullyExpanded() }
+            .collect { currentOnFullyExpanded.value?.invoke() }
     }
 
     val hasHeader = title != null || onClose != null || headerAction != null
@@ -194,8 +193,6 @@ internal fun Sheet(
                                 .onSizeChanged { footerHeight = with(density) { it.height.toDp() } }
                         )
                     }
-
-                    YallaSnackbarHost()
                 }
             }
         }

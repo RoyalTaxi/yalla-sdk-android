@@ -48,10 +48,6 @@ jobs:
       - name: Grant execute permissions for gradlew
         run: chmod +x gradlew
 
-      # yalla-sdk-android consumes uz.yalla.sdk:* from GitHub Packages in CI;
-      # the sibling ../yalla-sdk checkout is absent so the composite-build
-      # substitution in settings.gradle.kts falls back to the published
-      # artifacts automatically (useLocalYallaSdk guards on the dir existing).
       - name: Publish android library artifacts
         run: |
           ./gradlew publishAllPublicationsToGitHubPackagesRepository \

@@ -43,28 +43,30 @@ class YallaMediaFactory(application: Application) : MediaFactory {
         }
         val request = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
 
-        if (selectionLimit == 1) {
-            lateinit var launcher: ActivityResultLauncher<PickVisualMediaRequest>
-            launcher = activity.activityResultRegistry.register(
-                nextKey(),
-                ActivityResultContracts.PickVisualMedia()
-            ) { uri ->
-                launcher.unregister()
-                onResult(listOfNotNull(uri))
+        when (val mode = resolvePickMode(selectionLimit)) {
+            PickMode.Single -> {
+                lateinit var launcher: ActivityResultLauncher<PickVisualMediaRequest>
+                launcher = activity.activityResultRegistry.register(
+                    nextKey(),
+                    ActivityResultContracts.PickVisualMedia()
+                ) { uri ->
+                    launcher.unregister()
+                    onResult(listOfNotNull(uri))
+                }
+                launcher.launch(request)
             }
-            launcher.launch(request)
-        } else {
-            val contract = if (selectionLimit <= 1) {
-                ActivityResultContracts.PickMultipleVisualMedia()
-            } else {
-                ActivityResultContracts.PickMultipleVisualMedia(selectionLimit)
+
+            is PickMode.Multiple -> {
+                lateinit var launcher: ActivityResultLauncher<PickVisualMediaRequest>
+                launcher = activity.activityResultRegistry.register(
+                    nextKey(),
+                    ActivityResultContracts.PickMultipleVisualMedia(mode.maxItems)
+                ) { uris ->
+                    launcher.unregister()
+                    onResult(uris)
+                }
+                launcher.launch(request)
             }
-            lateinit var launcher: ActivityResultLauncher<PickVisualMediaRequest>
-            launcher = activity.activityResultRegistry.register(nextKey(), contract) { uris ->
-                launcher.unregister()
-                onResult(uris)
-            }
-            launcher.launch(request)
         }
     }
 
@@ -91,9 +93,33 @@ class YallaMediaFactory(application: Application) : MediaFactory {
     private fun nextKey(): String = "yalla_media_${keyCounter++}"
 
     private fun createCameraImageUri(context: Context): Uri? {
-        val imagesDir = File(context.filesDir, "share_images").apply { mkdirs() }
-        imagesDir.listFiles()?.forEach { it.delete() }
-        val imageFile = File.createTempFile("camera_", ".jpg", imagesDir)
-        return FileProvider.getUriForFile(context, context.packageName + ".provider", imageFile)
+        val imagesDir = File(context.filesDir, CAMERA_IMAGE_DIR).apply { mkdirs() }
+        val imageFile = File.createTempFile(CAMERA_IMAGE_PREFIX, CAMERA_IMAGE_SUFFIX, imagesDir)
+        val authority = context.packageName + FILE_PROVIDER_SUFFIX
+        return try {
+            FileProvider.getUriForFile(context, authority, imageFile)
+        } catch (e: IllegalArgumentException) {
+            throw IllegalStateException(
+                "captureImage() requires the host app to declare a FileProvider at authority " +
+                    "\"$authority\" exposing the app's internal files dir (a \"$CAMERA_IMAGE_DIR\" " +
+                    "<files-path>). See YallaMediaFactory KDoc for the exact <provider> declaration.",
+                e
+            )
+        }
+    }
+
+    private companion object {
+        const val CAMERA_IMAGE_DIR = "share_images"
+        const val CAMERA_IMAGE_PREFIX = "camera_"
+        const val CAMERA_IMAGE_SUFFIX = ".jpg"
+        const val FILE_PROVIDER_SUFFIX = ".provider"
     }
 }
+
+internal sealed interface PickMode {
+    data object Single : PickMode
+    data class Multiple(val maxItems: Int) : PickMode
+}
+
+internal fun resolvePickMode(selectionLimit: Int): PickMode =
+    if (selectionLimit < 2) PickMode.Single else PickMode.Multiple(selectionLimit)

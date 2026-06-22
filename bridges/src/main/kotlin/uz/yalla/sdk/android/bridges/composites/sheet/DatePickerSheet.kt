@@ -8,12 +8,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import dev.darkokoa.datetimewheelpicker.WheelDatePicker
 import dev.darkokoa.datetimewheelpicker.core.WheelPickerDefaults
 import kotlinx.datetime.LocalDate
 import uz.yalla.components.primitives.button.DoneButton
+import uz.yalla.sdk.android.bridges.feedback.Haptics
 import uz.yalla.sdk.android.design.theme.System
 
 private val DEFAULT_MIN_DATE = LocalDate(1900, 1, 1)
@@ -30,9 +32,8 @@ internal fun DatePickerSheet(
     onDismissRequest: () -> Unit,
     dismissEnabled: Boolean
 ) {
-    // Reset to the incoming startDate whenever it changes (e.g. once the saved birthday loads after
-    // the initial default composition).
     var snappedDate by remember(startDate) { mutableStateOf(startDate) }
+    val view = LocalView.current
 
     Sheet(
         isVisible = isVisible,
@@ -42,11 +43,12 @@ internal fun DatePickerSheet(
         title = title,
         onClose = if (dismissEnabled) onDismissRequest else null,
         headerAction = {
-            DoneButton(onClick = { onSelect(snappedDate) })
+            DoneButton(onClick = {
+                Haptics.impact(view)
+                onSelect(snappedDate)
+            })
         }
     ) { padding ->
-        // key(startDate) rebuilds the wheel when the start date changes so it scrolls to the new date
-        // instead of holding the position it captured on first composition.
         key(startDate) {
             WheelDatePicker(
                 startDate = startDate,
