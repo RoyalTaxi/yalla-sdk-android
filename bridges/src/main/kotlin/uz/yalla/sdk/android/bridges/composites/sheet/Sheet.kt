@@ -95,10 +95,6 @@ internal fun Sheet(
         }
     }
 
-    // Capture the (possibly fresh-each-recomposition) callback by reference so the effect can key on
-    // sheetState alone. Keying on the lambda restarted the snapshot collector on every recomposition,
-    // and its first re-emission of (Expanded, Expanded) passed the filter — re-firing onFullyExpanded
-    // every recomposition once the sheet was already open.
     val currentOnFullyExpanded = rememberUpdatedState(onFullyExpanded)
     LaunchedEffect(sheetState) {
         snapshotFlow { sheetState.currentValue to sheetState.targetValue }
@@ -197,9 +193,6 @@ internal fun Sheet(
                                 .onSizeChanged { footerHeight = with(density) { it.height.toDp() } }
                         )
                     }
-                    // Intentionally no YallaSnackbarHost() here: the host is mounted once at the app
-                    // content root (see YallaSnackbarHost KDoc). Hosting it per-sheet swallowed toasts
-                    // fired with no sheet open and double-rendered them when sheets stacked.
                 }
             }
         }

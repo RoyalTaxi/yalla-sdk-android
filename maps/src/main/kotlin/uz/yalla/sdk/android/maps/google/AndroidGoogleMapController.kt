@@ -190,8 +190,6 @@ internal class AndroidGoogleMapController(
     }
 
     private fun onMapReady(view: MapView, gm: GoogleMap) {
-        // getMapAsync is async: this can fire after detach()/close() (a stale view) — guard against
-        // flipping _isReady and rendering onto a view that is no longer attached.
         if (closed || mapView !== view) return
         googleMap = gm
         gm.uiSettings.isCompassEnabled = false
@@ -332,9 +330,6 @@ internal class AndroidGoogleMapController(
                 val json = if (isDark) style.darkJson else style.lightJson
                 gm.setMapStyle(com.google.android.gms.maps.model.MapStyleOptions(json))
             }
-            // Google Maps cannot load a MapLibre/Carto vector style URL; it keeps its own basemap.
-            // This is the contract: a MapStyle.Url is intentionally ignored here (Google does not
-            // support custom vector styles). Only InlineJson (a Google style JSON) is applied.
             is MapStyle.Url, MapStyle.PlatformDefault -> Unit
         }
     }
@@ -459,8 +454,6 @@ internal class AndroidGoogleMapController(
                     .zIndex(marker.zIndex)
                     .title(marker.contentDescription)
                 marker.icon?.let { MarkerIconLoader.loadGmsDescriptor(applicationContext, it)?.let(options::icon) }
-                // Only record markerData once the native handle exists; otherwise a failed addMarker
-                // leaves "exists in data, missing on map" and re-creates (and re-pushes motion) forever.
                 val created = gm.addMarker(options) ?: return@forEach
                 renderedMarkers[id] = created
                 if (marker.flat) {
@@ -481,8 +474,6 @@ internal class AndroidGoogleMapController(
                 if (previous?.zIndex != marker.zIndex) existing.zIndex = marker.zIndex
                 if (previous?.icon != marker.icon) {
                     val descriptor = marker.icon?.let { MarkerIconLoader.loadGmsDescriptor(applicationContext, it) }
-                    // Clearing or replacing the icon: fall back to the default marker when null so a
-                    // cleared icon doesn't leave the stale bitmap on screen.
                     existing.setIcon(descriptor)
                 }
                 if (previous?.contentDescription != marker.contentDescription) existing.title = marker.contentDescription

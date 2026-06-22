@@ -70,14 +70,6 @@ private val SnackbarPositionProvider = object : PopupPositionProvider {
     ): IntOffset = IntOffset((windowSize.width - popupContentSize.width) / 2, 0)
 }
 
-/**
- * Renders the transient toasts queued through [YallaSnackbarFactory] / [SnackbarController].
- *
- * Host this **once**, at the app's content root (above the navigation host, outside any sheet), so a
- * toast always shows regardless of what UI is on screen. Do **not** mount it per-screen or per-sheet:
- * every host observes the one shared [SnackbarController.items] list, so a second host renders a
- * duplicate toast, and a toast fired while no host is composed is silently dropped.
- */
 @Composable
 fun YallaSnackbarHost(modifier: Modifier = Modifier) {
     val items = SnackbarController.items
@@ -129,8 +121,6 @@ private fun SnackbarItemRow(
     val visibleState = remember { MutableTransitionState(false).apply { targetState = true } }
 
     LaunchedEffect(item.id) {
-        // Fire the matching haptic once when the toast first appears, mirroring iOS
-        // SnackbarHostController.enqueue (success/error notification haptic per semantic type).
         if (item.isError) Haptics.error(view) else Haptics.success(view)
         delay(if (item.isError) 5_000L else 3_000L)
         visibleState.targetState = false
@@ -156,8 +146,6 @@ private fun SnackbarItemRow(
             modifier = Modifier
                 .widthIn(max = 600.dp)
                 .fillMaxWidth()
-                // Toasts are transient and easy to miss under TalkBack — announce the (already
-                // localized) message without stealing focus, mirroring iOS's UIAccessibility post.
                 .semantics { liveRegion = LiveRegionMode.Polite }
                 .onSizeChanged { itemWidthPx = it.width.toFloat() }
                 .graphicsLayer { translationX = offsetX }
@@ -175,8 +163,6 @@ private fun SnackbarItemRow(
                 )
                 .clip(RoundedCornerShape(12.dp))
                 .background(
-                    // Single-sourced semantic tokens shared with iOS SnackbarItemView:
-                    // error = border.error, success = background.brand.
                     if (item.isError) System.color.border.error
                     else System.color.background.brand
                 )
@@ -203,11 +189,6 @@ private fun SnackbarItemRow(
     }
 }
 
-/**
- * Pure swipe-dismiss decision for a toast row: dismiss when dragged past [SwipeDismissFraction] of
- * its width, or flung faster than [velocityThresholdPx] (px/s). Extracted so the threshold math is
- * unit-testable independent of Compose gesture plumbing.
- */
 internal fun shouldDismissOnSwipe(
     offsetX: Float,
     itemWidthPx: Float,

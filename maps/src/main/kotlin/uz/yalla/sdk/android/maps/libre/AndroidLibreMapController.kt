@@ -167,13 +167,8 @@ internal class AndroidLibreMapController(
         scope.launch { fitBounds(fit.points, fit.animate, fit.padding) }
     }
 
-    // getCameraForLatLngBounds returns null until the GL camera transform is ready, even after the
-    // view is measured and the style is loaded — and the onLayoutChange listener only re-fires on a
-    // size *change*, so a view that already has its final size would never retry and the fit would be
-    // dropped forever. Retry on the next frame instead (it lands once the projection is ready).
     private fun scheduleFitRetry() {
         val view = mapView ?: return
-        // Bound the reposts: a degenerate bounds can return null indefinitely; don't repost forever.
         if (fitRetries >= MAX_FIT_RETRIES) return
         fitRetries++
         view.post {
@@ -232,8 +227,6 @@ internal class AndroidLibreMapController(
     }
 
     private fun onMapReady(view: MapView, lm: MapLibreMap) {
-        // getMapAsync is async: this can fire after detach()/close() (a stale view) — guard against
-        // rendering onto a view that is no longer attached.
         if (closed || mapView !== view) return
         libreMap = lm
         lm.uiSettings.isAttributionEnabled = false
@@ -246,7 +239,6 @@ internal class AndroidLibreMapController(
         applyInteractionEnabled()
         pendingStyle?.resolveUrl(pendingIsDark)?.let { styleUrl = it }
         lm.setStyle(Style.Builder().fromUri(styleUrl)) { style ->
-            // setStyle is also async — bail if the view was detached while the style loaded.
             if (closed || mapView !== view) return@setStyle
             libreStyle = style
             applyPadding(pendingPadding)
@@ -678,8 +670,6 @@ internal class AndroidLibreMapController(
         val sm = symbolManager ?: return
         val style = libreMap?.style ?: return
         val incoming = markers.associateBy { it.id }
-        // Diff the same key set Google does (the rendered native handles), not markerData — a failed
-        // sm.create must not leak a markerData entry that strands the marker "in data, off the map".
         val toRemove = renderedSymbols.keys - incoming.keys
         toRemove.forEach { id ->
             motionDriver.remove(id)
@@ -707,8 +697,6 @@ internal class AndroidLibreMapController(
                     .withIconAnchor(MapMath.toLibreAnchor(marker.anchor))
                     .withSymbolSortKey(marker.zIndex)
                 iconImageId?.let { options.withIconImage(it) }
-                // Only record markerData once the native symbol exists; otherwise a failed create
-                // strands the marker and re-creates (and re-pushes motion) on every render.
                 val created = sm.create(options) ?: return@forEach
                 renderedSymbols[id] = created
                 if (marker.flat) {
@@ -727,8 +715,6 @@ internal class AndroidLibreMapController(
                 if (previous?.anchor != marker.anchor) existing.iconAnchor = MapMath.toLibreAnchor(marker.anchor)
                 if (previous?.zIndex != marker.zIndex) existing.symbolSortKey = marker.zIndex
                 if (previous?.icon != marker.icon) {
-                    // Set the new image, or clear it (empty string) when the icon went away — otherwise
-                    // a non-null -> null transition leaves the stale image on screen.
                     existing.iconImage = iconImageId ?: ""
                 }
                 sm.update(existing)
@@ -738,10 +724,6 @@ internal class AndroidLibreMapController(
         evictUnusedIconImages(style, incoming.values)
     }
 
-    // Bound the GL style-image table: it grows one permanent entry per distinct pin label/color/bytes
-    // payload otherwise (style.addImage is never undone), unlike the LRU-capped bitmap cache. Drop any
-    // uploaded image no longer referenced by a live marker. The user-location icon is managed by
-    // renderUserLocation, so it is never evicted here.
     private fun evictUnusedIconImages(style: Style, markers: Collection<MapMarker>) {
         if (uploadedIconKeys.isEmpty()) return
         val inUse = markers.mapNotNull { it.icon?.let(MapMath::iconImageKey) }.toHashSet()
@@ -780,9 +762,6 @@ internal class AndroidLibreMapController(
                     PropertyFactory.lineWidth(route.widthDp)
                 )
                 MapMath.toLibreDashArray(route.pattern, route.widthDp)?.let { layer.setProperties(PropertyFactory.lineDasharray(it)) }
-                // Insert the route below the marker (symbol) layer so it stays under markers + labels,
-                // matching iOS (LibreMapRenderer.swift:433). Do NOT anchor to a circle layer — that
-                // made the route/circle/marker stacking diverge from iOS when a circle was present.
                 val anchorLayerId = symbolManager?.layerId
                 if (anchorLayerId != null) {
                     runCatching { style.addLayerBelow(layer, anchorLayerId) }
@@ -844,8 +823,6 @@ internal class AndroidLibreMapController(
         MapStyle.PlatformDefault -> null
     }
 
-    // MapLibre's CameraPosition.target is @Nullable (absent during style load / before the
-    // first fix), so callers must skip a null camera rather than read it. See YLL-762.
     private fun LibreCameraPosition.toShared(padding: PaddingValues): CameraPosition? {
         val t = target ?: return null
         return CameraPosition(

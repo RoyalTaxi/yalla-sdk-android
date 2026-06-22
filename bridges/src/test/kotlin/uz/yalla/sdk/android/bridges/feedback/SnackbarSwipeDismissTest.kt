@@ -10,7 +10,6 @@ class SnackbarSwipeDismissTest {
 
     @Test
     fun smallDragWithLowVelocityIsKept() {
-        // 30% of width, well under the 40% distance threshold and under the velocity threshold.
         assertFalse(shouldDismissOnSwipe(offsetX = 300f, itemWidthPx = width, velocity = 100f, velocityThresholdPx = velocityThreshold))
     }
 

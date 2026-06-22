@@ -54,9 +54,6 @@ internal fun VerificationSheet(
         runCatching { focusRequester.requestFocus() }
     }
 
-    // Fire the error haptic only on the rising edge of isError, mirroring iOS's
-    // `if !wasError && isError { Haptics.error() }`, so a persistent error state doesn't buzz on
-    // every recomposition.
     LaunchedEffect(isError) {
         if (isError) Haptics.error(view)
     }

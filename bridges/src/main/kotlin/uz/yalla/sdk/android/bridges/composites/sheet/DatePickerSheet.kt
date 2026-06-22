@@ -32,8 +32,6 @@ internal fun DatePickerSheet(
     onDismissRequest: () -> Unit,
     dismissEnabled: Boolean
 ) {
-    // Reset to the incoming startDate whenever it changes (e.g. once the saved birthday loads after
-    // the initial default composition).
     var snappedDate by remember(startDate) { mutableStateOf(startDate) }
     val view = LocalView.current
 
@@ -51,8 +49,6 @@ internal fun DatePickerSheet(
             })
         }
     ) { padding ->
-        // key(startDate) rebuilds the wheel when the start date changes so it scrolls to the new date
-        // instead of holding the position it captured on first composition.
         key(startDate) {
             WheelDatePicker(
                 startDate = startDate,

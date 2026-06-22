@@ -26,9 +26,6 @@ internal object MarkerIconLoader {
     private val userLocationGradientStart = 0xFF3400FF.toInt()
     private val userLocationGradientEnd = 0xFF886BFF.toInt()
 
-    // Keyed on the stable iconImageKey string, not on MapMarkerIcon: MapMarkerIcon.Bytes.hashCode()
-    // re-hashes the whole ByteArray on every cache get/put, which is per-frame work for a glide loop
-    // feeding the same Bytes car icon. The string key is computed once per call and cheap to hash.
     private val bitmapCache = LruCache<String, Bitmap>(MAX_BITMAP_ENTRIES)
 
     private val descriptorCache = LruCache<String, BitmapDescriptor>(MAX_BITMAP_ENTRIES)

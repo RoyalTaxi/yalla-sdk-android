@@ -7,7 +7,6 @@ import uz.yalla.components.config.primitives.IconButtonFactory
 import uz.yalla.components.primitives.button.IconButtonShape
 import uz.yalla.sdk.android.components.primitives.button.IconButton
 
-/** Android implementation of the common `IconButtonFactory`, delegating to the design `IconButton`. */
 class YallaIconButtonFactory : IconButtonFactory {
     @Composable
     override fun Content(

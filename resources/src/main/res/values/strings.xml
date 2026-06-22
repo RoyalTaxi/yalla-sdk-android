@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated from RoyalTaxi/yalla-resources. Do not edit by hand. -->
 <resources>
     <string name="app_name" translatable="false">Yalla</string>
     <string name="sdk_android_module_name" translatable="false">YallaSDKAndroid</string>

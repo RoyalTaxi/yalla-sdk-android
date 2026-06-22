@@ -16,7 +16,6 @@ class PickModeTest {
 
     @Test
     fun zeroLimitIsSinglePickNotUnboundedMulti() {
-        // Regression: a limit of 0 previously fell through to an unbounded PickMultipleVisualMedia().
         assertEquals(PickMode.Single, resolvePickMode(0))
     }
 
