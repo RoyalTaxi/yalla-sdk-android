@@ -49,6 +49,7 @@ import uz.yalla.maps.api.model.MapMarker
 import uz.yalla.maps.api.model.MapRoute
 import uz.yalla.maps.api.model.MapStyle
 import uz.yalla.maps.config.MapConstants
+import uz.yalla.maps.motion.RouteConnector
 import uz.yalla.sdk.android.maps.common.MapMath
 import uz.yalla.sdk.android.maps.common.MarkerIconLoader
 import uz.yalla.sdk.android.maps.common.MarkerMotionDriver
@@ -117,15 +118,30 @@ internal class AndroidLibreMapController(
 
     private val renderedSymbols = HashMap<String, LibreSymbol>()
 
-    private val motionDriver = MarkerMotionDriver { id, point, bearing ->
-        val symbol = renderedSymbols[id] ?: return@MarkerMotionDriver
-        val sm = symbolManager ?: return@MarkerMotionDriver
-        symbol.latLng = point.toLatLng()
-        symbol.iconRotate = bearing
-        sm.update(symbol)
-    }
+    private val motionDriver = MarkerMotionDriver(
+        write = { id, point, bearing ->
+            val symbol = renderedSymbols[id]
+            val sm = symbolManager
+            if (symbol != null && sm != null) {
+                symbol.latLng = point.toLatLng()
+                symbol.iconRotate = bearing
+                sm.update(symbol)
+            }
+        },
+        writeRoute = { routeId, points ->
+            routeSources[routeId]?.setGeoJson(
+                Feature.fromGeometry(
+                    LineString.fromLngLats(points.map { GeoJsonPoint.fromLngLat(it.lng, it.lat) })
+                )
+            )
+        },
+        writeConnector = { id, connector -> drawConnector(id, connector) },
+        routeFollowingEnabled = true
+    )
     private val routeSources = HashMap<String, GeoJsonSource>()
     private val routeLayers = HashMap<String, LineLayer>()
+    private val connectorSources = HashMap<String, GeoJsonSource>()
+    private val connectorLayers = HashMap<String, LineLayer>()
     private val circleSources = HashMap<String, GeoJsonSource>()
     private val circleLayers = HashMap<String, CircleLayer>()
     private val uploadedIconKeys = HashSet<String>()
@@ -189,6 +205,8 @@ internal class AndroidLibreMapController(
         libreStyle?.also { style ->
             routeLayers.values.forEach { runCatching { style.removeLayer(it) } }
             routeSources.values.forEach { runCatching { style.removeSource(it) } }
+            connectorLayers.values.forEach { runCatching { style.removeLayer(it) } }
+            connectorSources.values.forEach { runCatching { style.removeSource(it) } }
             circleLayers.values.forEach { runCatching { style.removeLayer(it) } }
             circleSources.values.forEach { runCatching { style.removeSource(it) } }
             userLocationDotLayer?.let { runCatching { style.removeLayer(it) } }
@@ -203,6 +221,8 @@ internal class AndroidLibreMapController(
         renderedSymbols.clear()
         routeLayers.clear()
         routeSources.clear()
+        connectorLayers.clear()
+        connectorSources.clear()
         circleLayers.clear()
         circleSources.clear()
         markerData.clear()
@@ -415,6 +435,8 @@ internal class AndroidLibreMapController(
                     motionDriver.clear()
                     routeSources.clear()
                     routeLayers.clear()
+                    connectorSources.clear()
+                    connectorLayers.clear()
                     circleSources.clear()
                     circleLayers.clear()
                     renderedSymbols.clear()
@@ -700,6 +722,7 @@ internal class AndroidLibreMapController(
                 renderedSymbols[id] = created
                 if (marker.flat) {
                     motionDriver.push(id, marker.point, marker.routeHeading, marker.rotation, SystemClock.uptimeMillis())
+                    applyRouteFollow(id, marker)
                 }
                 markerData[id] = marker
             } else {
@@ -711,6 +734,9 @@ internal class AndroidLibreMapController(
                     motionDriver.remove(id)
                     existing.latLng = marker.point.toLatLng()
                     existing.iconRotate = marker.rotation
+                }
+                if (marker.flat && previous?.followsRouteId != marker.followsRouteId) {
+                    applyRouteFollow(id, marker)
                 }
                 if (previous?.anchor != marker.anchor) existing.iconAnchor = MapMath.toLibreAnchor(marker.anchor)
                 if (previous?.zIndex != marker.zIndex) existing.symbolSortKey = marker.zIndex
@@ -731,6 +757,74 @@ internal class AndroidLibreMapController(
         stale.forEach { key ->
             runCatching { style.removeImage(key) }
             uploadedIconKeys.remove(key)
+        }
+    }
+
+    /**
+     * Feeds the route a flat marker declares it follows ([MapMarker.followsRouteId]) into the
+     * motion driver, or clears following when the marker no longer follows a route. The driver
+     * then drives the marker along the route's arc-length and trims the drawn line behind it.
+     */
+    private fun applyRouteFollow(id: String, marker: MapMarker) {
+        val routeId = marker.followsRouteId
+        if (routeId == null) {
+            motionDriver.setRoute(id, "", null)
+            return
+        }
+        val points = routeData[routeId]?.points ?: pendingRoutes.firstOrNull { it.id == routeId }?.points
+        motionDriver.setRoute(id, routeId, points)
+    }
+
+    /** Re-feeds a changed route's points to any flat marker following it. */
+    private fun refreshFollowersOf(routeId: String) {
+        markerData.values.forEach { marker ->
+            if (marker.flat && marker.followsRouteId == routeId) applyRouteFollow(marker.id, marker)
+        }
+    }
+
+    /**
+     * Draws (or clears, on `null`) the honesty connector handed by the motion model for marker [id]:
+     * a short dashed line from the raw GPS fix to where the car is snapped on the route. Pure
+     * drawing — the model decides when the connector exists and what its endpoints are.
+     */
+    private fun drawConnector(id: String, connector: RouteConnector?) {
+        val style = libreStyle ?: return
+        if (connector == null) {
+            connectorLayers.remove(id)?.let { runCatching { style.removeLayer(it) } }
+            connectorSources.remove(id)?.let { runCatching { style.removeSource(it) } }
+            return
+        }
+        val feature = Feature.fromGeometry(
+            LineString.fromLngLats(
+                listOf(
+                    GeoJsonPoint.fromLngLat(connector.rawPoint.lng, connector.rawPoint.lat),
+                    GeoJsonPoint.fromLngLat(connector.snappedPoint.lng, connector.snappedPoint.lat)
+                )
+            )
+        )
+        val existingSource = connectorSources[id]
+        if (existingSource == null) {
+            val sourceId = "yalla-connector-src-$id"
+            val layerId = "yalla-connector-lyr-$id"
+            val source = GeoJsonSource(sourceId, feature)
+            style.addSource(source)
+            val layer = LineLayer(layerId, sourceId).withProperties(
+                PropertyFactory.lineCap("round"),
+                PropertyFactory.lineColor(CONNECTOR_COLOR),
+                PropertyFactory.lineWidth(CONNECTOR_WIDTH_DP),
+                PropertyFactory.lineDasharray(arrayOf(2f, 2f))
+            )
+            val anchorLayerId = symbolManager?.layerId
+            if (anchorLayerId != null) {
+                runCatching { style.addLayerBelow(layer, anchorLayerId) }
+                    .onFailure { style.addLayer(layer) }
+            } else {
+                style.addLayer(layer)
+            }
+            connectorSources[id] = source
+            connectorLayers[id] = layer
+        } else {
+            existingSource.setGeoJson(feature)
         }
     }
 
@@ -783,7 +877,9 @@ internal class AndroidLibreMapController(
                     existingLayer.setProperties(PropertyFactory.lineDasharray(MapMath.toLibreDashArray(route.pattern, route.widthDp)))
                 }
             }
+            val pointsChanged = previous?.points != route.points
             routeData[id] = route
+            if (pointsChanged) refreshFollowersOf(id)
         }
     }
 
@@ -857,6 +953,8 @@ internal class AndroidLibreMapController(
         const val USER_LOCATION_CIRCLE_LAYER_ID = "yalla-user-location-circle"
         const val USER_LOCATION_DOT_LAYER_ID = "yalla-user-location-dot"
         const val USER_LOCATION_ICON_ID = "yalla-icon-user-location"
+        val CONNECTOR_COLOR = 0x99562DF8.toInt()
+        const val CONNECTOR_WIDTH_DP = 2f
     }
 
     private data class PendingFit(
