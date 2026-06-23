@@ -135,7 +135,8 @@ internal class AndroidLibreMapController(
                 )
             )
         },
-        writeConnector = { id, connector -> drawConnector(id, connector) }
+        writeConnector = { id, connector -> drawConnector(id, connector) },
+        routeFollowingEnabled = true
     )
     private val routeSources = HashMap<String, GeoJsonSource>()
     private val routeLayers = HashMap<String, LineLayer>()

@@ -123,7 +123,8 @@ internal class AndroidGoogleMapController(
         writeRoute = { routeId, points ->
             renderedRoutes[routeId]?.points = points.map { it.toLatLng() }
         },
-        writeConnector = { id, connector -> drawConnector(id, connector) }
+        writeConnector = { id, connector -> drawConnector(id, connector) },
+        routeFollowingEnabled = true
     )
     private val renderedRoutes = HashMap<String, GmsPolyline>()
     private val renderedConnectors = HashMap<String, GmsPolyline>()
