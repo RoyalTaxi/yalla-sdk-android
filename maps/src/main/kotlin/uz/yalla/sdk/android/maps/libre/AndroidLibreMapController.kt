@@ -9,8 +9,6 @@ import android.view.View
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,7 +21,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.android.MapLibre
-import org.maplibre.android.camera.CameraPosition as LibreCameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
@@ -31,7 +28,6 @@ import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
-import org.maplibre.android.plugins.annotation.Symbol as LibreSymbol
 import org.maplibre.android.plugins.annotation.SymbolManager
 import org.maplibre.android.plugins.annotation.SymbolOptions
 import org.maplibre.android.style.expressions.Expression
@@ -42,7 +38,6 @@ import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.LineString
-import org.maplibre.geojson.Point as GeoJsonPoint
 import uz.yalla.core.geo.GeoPoint
 import uz.yalla.maps.api.AndroidMapController
 import uz.yalla.maps.api.MapController
@@ -58,6 +53,10 @@ import uz.yalla.sdk.android.maps.common.MapMath
 import uz.yalla.sdk.android.maps.common.MarkerIconLoader
 import uz.yalla.sdk.android.maps.common.MarkerMotionDriver
 import uz.yalla.sdk.android.maps.common.toPaddingPx
+import kotlin.coroutines.resume
+import org.maplibre.android.camera.CameraPosition as LibreCameraPosition
+import org.maplibre.android.plugins.annotation.Symbol as LibreSymbol
+import org.maplibre.geojson.Point as GeoJsonPoint
 
 internal class AndroidLibreMapController(
     private val applicationContext: Context,
@@ -408,7 +407,7 @@ internal class AndroidLibreMapController(
         val newUrl = style.resolveUrl(isDark)
         if (newUrl != null && newUrl != styleUrl) {
             styleUrl = newUrl
-            suspendCoroutine<Unit> { cont ->
+            suspendCancellableCoroutine { cont ->
                 lm.setStyle(Style.Builder().fromUri(newUrl)) { style ->
                     libreStyle = style
                     val mv = mapView
@@ -520,7 +519,7 @@ internal class AndroidLibreMapController(
                 circleLayers[id] = layer
             } else {
                 if (previous?.center != circle.center) existingSource.setGeoJson(feature)
-                if (previous?.center != circle.center || previous?.radiusMeters != circle.radiusMeters) {
+                if (previous?.center != circle.center || previous.radiusMeters != circle.radiusMeters) {
                     existingLayer.setProperties(PropertyFactory.circleRadius(circleRadiusExpression(circle.radiusMeters, circle.center.lat)))
                 }
                 if (previous?.fillColorArgb != circle.fillColorArgb) {
@@ -704,8 +703,8 @@ internal class AndroidLibreMapController(
                 }
                 markerData[id] = marker
             } else {
-                val moved = previous?.point != marker.point || previous?.rotation != marker.rotation
-                val motionChanged = moved || previous?.routeHeading != marker.routeHeading
+                val moved = previous?.point != marker.point || previous.rotation != marker.rotation
+                val motionChanged = moved || previous.routeHeading != marker.routeHeading
                 if (motionChanged && marker.flat) {
                     motionDriver.push(id, marker.point, marker.routeHeading, marker.rotation, SystemClock.uptimeMillis())
                 } else if (moved) {
@@ -780,7 +779,7 @@ internal class AndroidLibreMapController(
                 if (previous?.widthDp != route.widthDp) {
                     existingLayer.setProperties(PropertyFactory.lineWidth(route.widthDp))
                 }
-                if (previous?.pattern != route.pattern || previous?.widthDp != route.widthDp) {
+                if (previous?.pattern != route.pattern || previous.widthDp != route.widthDp) {
                     existingLayer.setProperties(PropertyFactory.lineDasharray(MapMath.toLibreDashArray(route.pattern, route.widthDp)))
                 }
             }
@@ -793,7 +792,7 @@ internal class AndroidLibreMapController(
         update: org.maplibre.android.camera.CameraUpdate,
         durationMs: Int
     ) {
-        suspendCancellableCoroutine<Unit> { cont ->
+        suspendCancellableCoroutine { cont ->
             val generation = ++animationGeneration
             cont.invokeOnCancellation { mainHandler.post { lm.cancelTransitions() } }
             animationInFlight = true
