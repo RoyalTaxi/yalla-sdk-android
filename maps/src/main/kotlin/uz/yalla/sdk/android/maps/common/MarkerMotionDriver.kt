@@ -24,15 +24,12 @@ import uz.yalla.maps.motion.RouteConnector
  * @param write writes the sampled pose (position + bearing) for a marker id.
  * @param writeRoute draws the remaining-route polyline the model hands back, verbatim.
  * @param writeConnector draws (or clears, on `null`) the raw-GPS → snapped honesty line for a marker.
- * @param onOffRouteSignal invoked once per ON_ROUTE→OFF_ROUTE crossing the model latches, so the
- *   client (never the SDK — ADR 0002) can refetch the route and re-seed via [setRoute].
  * @param routeFollowingEnabled SDK feature flag; forwarded to every [DriverMotionModel] created.
  */
 internal class MarkerMotionDriver(
     private val write: (id: String, point: GeoPoint, bearing: Float) -> Unit,
     private val writeRoute: (id: String, points: List<GeoPoint>) -> Unit = { _, _ -> },
     private val writeConnector: (id: String, connector: RouteConnector?) -> Unit = { _, _ -> },
-    private val onOffRouteSignal: (id: String) -> Unit = { _ -> },
     private val routeFollowingEnabled: Boolean = false,
     private val routeConfig: RouteFollowingConfig = RouteFollowingConfig()
 ) {
@@ -125,7 +122,6 @@ internal class MarkerMotionDriver(
                 lastEmitted[id] = Pose(pose.point.lat, pose.point.lng, pose.bearing)
                 write(id, pose.point, pose.bearing)
             }
-            if (model.consumeOffRouteSignal()) onOffRouteSignal(id)
             if (model.isFollowingRoute()) {
                 emitRoute(id, model, now)
                 emitConnector(id, model, now)
