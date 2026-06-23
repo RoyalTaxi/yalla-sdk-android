@@ -462,7 +462,8 @@ internal class AndroidGoogleMapController(
                 markerData[id] = marker
             } else {
                 val moved = previous?.point != marker.point || previous?.rotation != marker.rotation
-                if (moved && marker.flat) {
+                val motionChanged = moved || previous?.routeHeading != marker.routeHeading
+                if (motionChanged && marker.flat) {
                     motionDriver.push(id, marker.point, marker.routeHeading, marker.rotation, SystemClock.uptimeMillis())
                 } else if (moved) {
                     motionDriver.remove(id)
