@@ -15,6 +15,7 @@ moko-geo = "0.7.0"
 koin = "4.1.1"
 kotlinx-coroutines = "1.11.0"
 androidx-lifecycle = "2.9.4"
+konsist = "0.17.3"
 
 [libraries]
 androidx-compose-runtime = { module = "androidx.compose.runtime:runtime", version.ref = "androidx-compose" }
@@ -45,6 +46,7 @@ firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
 firebase-crashlytics = { module = "com.google.firebase:firebase-crashlytics" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
+konsist = { module = "com.lemonappdev:konsist", version.ref = "konsist" }
 datetime-wheel-picker = { module = "io.github.darkokoa:datetime-wheel-picker", version.ref = "datetime-wheel-picker" }
 
 [plugins]

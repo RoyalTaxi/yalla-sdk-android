@@ -53,6 +53,7 @@ import uz.yalla.maps.api.model.MapRoute
 import uz.yalla.maps.api.model.MapStyle
 import uz.yalla.maps.api.model.RoutePattern
 import uz.yalla.maps.config.MapConstants
+import uz.yalla.maps.motion.RouteConnector
 import uz.yalla.sdk.android.maps.common.MapMath
 import uz.yalla.sdk.android.maps.common.MarkerIconLoader
 import uz.yalla.sdk.android.maps.common.MarkerMotionDriver
@@ -61,6 +62,9 @@ import uz.yalla.sdk.android.maps.common.toPaddingPx
 private const val USER_LOCATION_ACCURACY_METERS = 50.0
 private const val USER_LOCATION_FILL_COLOR = 0x33562DF8
 private const val USER_LOCATION_STROKE_COLOR = 0x66562DF8
+private val CONNECTOR_COLOR = 0x99562DF8.toInt()
+private const val CONNECTOR_WIDTH_DP = 2f
+private const val CONNECTOR_Z_INDEX = 50f
 
 internal class AndroidGoogleMapController(
     private val applicationContext: Context
@@ -109,13 +113,20 @@ internal class AndroidGoogleMapController(
 
     private val renderedMarkers = HashMap<String, GmsMarker>()
 
-    private val motionDriver = MarkerMotionDriver { id, point, bearing ->
-        renderedMarkers[id]?.let { marker ->
-            marker.position = point.toLatLng()
-            marker.rotation = bearing
-        }
-    }
+    private val motionDriver = MarkerMotionDriver(
+        write = { id, point, bearing ->
+            renderedMarkers[id]?.let { marker ->
+                marker.position = point.toLatLng()
+                marker.rotation = bearing
+            }
+        },
+        writeRoute = { routeId, points ->
+            renderedRoutes[routeId]?.points = points.map { it.toLatLng() }
+        },
+        writeConnector = { id, connector -> drawConnector(id, connector) }
+    )
     private val renderedRoutes = HashMap<String, GmsPolyline>()
+    private val renderedConnectors = HashMap<String, GmsPolyline>()
     private val renderedCircles = HashMap<String, GmsCircle>()
     private val markerData = HashMap<String, MapMarker>()
     private val routeData = HashMap<String, MapRoute>()
@@ -164,9 +175,11 @@ internal class AndroidGoogleMapController(
         motionDriver.clear()
         renderedMarkers.values.forEach { it.remove() }
         renderedRoutes.values.forEach { it.remove() }
+        renderedConnectors.values.forEach { it.remove() }
         renderedCircles.values.forEach { it.remove() }
         renderedMarkers.clear()
         renderedRoutes.clear()
+        renderedConnectors.clear()
         renderedCircles.clear()
         markerData.clear()
         routeData.clear()
@@ -458,6 +471,7 @@ internal class AndroidGoogleMapController(
                 renderedMarkers[id] = created
                 if (marker.flat) {
                     motionDriver.push(id, marker.point, marker.routeHeading, marker.rotation, SystemClock.uptimeMillis())
+                    applyRouteFollow(id, marker)
                 }
                 markerData[id] = marker
             } else {
@@ -470,6 +484,9 @@ internal class AndroidGoogleMapController(
                     existing.position = marker.point.toLatLng()
                     existing.rotation = marker.rotation
                 }
+                if (marker.flat && previous?.followsRouteId != marker.followsRouteId) {
+                    applyRouteFollow(id, marker)
+                }
                 if (previous?.flat != marker.flat) existing.isFlat = marker.flat
                 if (previous?.anchor != marker.anchor) existing.setAnchor(marker.anchor.x, marker.anchor.y)
                 if (previous?.zIndex != marker.zIndex) existing.zIndex = marker.zIndex
@@ -481,6 +498,21 @@ internal class AndroidGoogleMapController(
                 markerData[id] = marker
             }
         }
+    }
+
+    /**
+     * Feeds the route a flat marker declares it follows ([MapMarker.followsRouteId]) into the
+     * motion driver, or clears following when the marker no longer follows a route. The driver
+     * then drives the marker along the route's arc-length and trims the drawn polyline behind it.
+     */
+    private fun applyRouteFollow(id: String, marker: MapMarker) {
+        val routeId = marker.followsRouteId
+        if (routeId == null) {
+            motionDriver.setRoute(id, "", null)
+            return
+        }
+        val points = routeData[routeId]?.points ?: pendingRoutes.firstOrNull { it.id == routeId }?.points
+        motionDriver.setRoute(id, routeId, points)
     }
 
     private fun renderRoutes(routes: List<MapRoute>) {
@@ -513,7 +545,43 @@ internal class AndroidGoogleMapController(
                 if (previous?.zIndex != route.zIndex) existing.zIndex = route.zIndex
                 if (previous?.pattern != route.pattern) existing.pattern = route.pattern.toGmsPattern(density)
             }
+            val pointsChanged = previous?.points != route.points
             routeData[id] = route
+            if (pointsChanged) refreshFollowersOf(id)
+        }
+    }
+
+    /** Re-feeds a changed route's points to any flat marker following it. */
+    private fun refreshFollowersOf(routeId: String) {
+        markerData.values.forEach { marker ->
+            if (marker.flat && marker.followsRouteId == routeId) applyRouteFollow(marker.id, marker)
+        }
+    }
+
+    /**
+     * Draws (or clears, on `null`) the honesty connector handed by the motion model for marker [id]:
+     * a short line from the raw GPS fix to where the car is snapped on the route. Pure drawing — the
+     * model decides when the connector exists and what its endpoints are.
+     */
+    private fun drawConnector(id: String, connector: RouteConnector?) {
+        if (connector == null) {
+            renderedConnectors.remove(id)?.remove()
+            return
+        }
+        val points = listOf(connector.rawPoint.toLatLng(), connector.snappedPoint.toLatLng())
+        val existing = renderedConnectors[id]
+        if (existing == null) {
+            val density = applicationContext.resources.displayMetrics.density
+            val gm = googleMap ?: return
+            val options = PolylineOptions()
+                .addAll(points)
+                .color(CONNECTOR_COLOR)
+                .width(CONNECTOR_WIDTH_DP * density)
+                .pattern(listOf(Dash(8f * density), Gap(6f * density)))
+                .zIndex(CONNECTOR_Z_INDEX)
+            gm.addPolyline(options).also { renderedConnectors[id] = it }
+        } else {
+            existing.points = points
         }
     }
 
